@@ -1,0 +1,31 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "User-Qt",
+      "inherits": "Qt",
+      "binaryDir": "${sourceDir}/build",
+      "generator": "Visual Studio 16 2019",
+      "architecture": {
+        "strategy": "external",
+        "value": "x64"
+      },
+      "environment": {
+        "QTDIR": "E:/Qt5/5.15.2/msvc2019_64",
+        "BOOST_ROOT": "C:/local/boost_1_89_0_2019"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "User-Qt-Debug",
+      "configurePreset": "User-Qt",
+      "configuration": "Debug"
+    },
+    {
+      "name": "User-Qt-Release",
+      "configurePreset": "User-Qt",
+      "configuration": "Release"
+    }
+  ]
+}

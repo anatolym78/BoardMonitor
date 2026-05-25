@@ -1,0 +1,45 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Resources/_pause_icon.png</file>
+        <file>Resources/_pause_32.png</file>
+        <file>Resources/_play_32.png</file>
+        <file>Resources/_stop_32.png</file>
+        <file>Resources/pause_32.png</file>
+        <file>Resources/run_32.png</file>
+        <file>Resources/stop_32.png</file>
+        <file>Resources/parameter_group_16.png</file>
+        <file>Resources/parameter_list_16.png</file>
+        <file>Resources/parameter_value_16.png</file>
+        <file>Resources/parameters_root_16.png</file>
+        <file>Resources/parameter_value_16_2.png</file>
+        <file>Resources/control_parameters_16.png</file>
+        <file>Resources/sessions_16.png</file>
+        <file>Resources/remove_record_16.png</file>
+        <file>Resources/toggle_chart_16.png</file>
+        <file>Resources/toggle_parameter_16.png</file>
+        <file>Resources/one_column.png</file>
+        <file>Resources/two_columns.png</file>
+        <file>Resources/merge_charts_32.png</file>
+        <file>Resources/remove_record_16_2.png</file>
+        <file>Resources/save_record_16.png</file>
+        <file>Resources/send_parameters_32.png</file>
+        <file>Resources/live_session_16.png</file>
+        <file>BoardStation_ru_RU.qm</file>
+        <file>Resources/info_16.png</file>
+        <file>Resources/icons8-play-32.png</file>
+        <file>Resources/icons8-pause-32.png</file>
+        <file>Resources/icons8-stop-32.png</file>
+        <file>Resources/icons8-pause-yellow-32.png</file>
+        <file>Resources/icons8-stop-red-32.png</file>
+        <file>Resources/icons8-delete-32.png</file>
+        <file>Resources/icons8-merge-documents-32.png</file>
+        <file>Resources/icons8-one_column-32.png</file>
+        <file>Resources/icons8-save-32.png</file>
+        <file>Resources/icons8-two_column-32.png</file>
+        <file>Resources/icons8-send-32.png</file>
+        <file>Resources/icons8-list-24.png</file>
+        <file>Resources/icons8-live-24.png</file>
+        <file>Resources/icons8-list-32.png</file>
+        <file>Resources/icons8-live-32.png</file>
+    </qresource>
+</RCC>

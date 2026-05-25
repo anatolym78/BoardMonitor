@@ -1,0 +1,80 @@
+{
+    "status": [
+        {
+            "label": "timeStamp_ms",
+            "value": 112
+        },
+        {
+            "label": "flightMode",
+            "value": 2
+        },
+        {
+            "label": "batteryVoltage",
+            "value": 139
+        }
+    ],
+
+    "flags": [
+        {
+            "label": "armingFlag",
+            "value": true
+        },
+        {
+            "label": "neuroPIDFlag",
+            "value": false
+        },
+        {
+            "label": "detectObstaclesFlag",
+            "value": true
+        },
+        {
+            "label": "kObstacleFlag",
+            "value": true
+        }
+    ],
+
+    "motion": [
+        {
+            "label": "gyroAngleRates",
+            "value": [0.1, 0.2, 0.3]
+        },
+        {
+            "label": "desiredAngleRates",
+            "value": [0.0, 0.0, 0.0]
+        },
+        {
+            "label": "acceleration",
+            "value": [0, 1, 2]
+        },
+        {
+            "label": "groundSpeed",
+            "value": 255
+        }
+    ],
+
+    "controls": [
+        {
+            "label": "adjustmentValues",
+            "value": [500, 200, 300, 100]
+        },
+        {
+            "label": "totalThrottle",
+            "value": 2100
+        }
+    ],
+
+    "attitude": [
+        {
+            "label": "attitude",
+            "value": [120, 1, 301]
+        },
+        {
+            "label": "altitude",
+            "value": 560
+        },
+        {
+            "label": "gpsCoordinates",
+            "value": [557510000, 376176000]
+        }
+    ]
+}
