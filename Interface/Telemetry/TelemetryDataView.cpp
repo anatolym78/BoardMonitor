@@ -37,7 +37,7 @@ void TelemetryDataView::setModel(QAbstractItemModel* model)
 	model->setHeaderData(1, Qt::Horizontal, tr("value"));
 
 	header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-	header()->setSectionResizeMode(1, QHeaderView::Stretch);
+	header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
 
 	// Устанавливаем делегат для колонки значений (индекс 1)
 	setItemDelegateForColumn(1, new TelemetryDelegate(this));

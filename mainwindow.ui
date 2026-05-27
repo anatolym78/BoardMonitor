@@ -40,7 +40,7 @@
       </property>
       <widget class="QWidget" name="sessionsTab">
        <attribute name="icon">
-        <iconset resource="qml.qrc">
+        <iconset>
          <normaloff>:/Resources/sessions_16.png</normaloff>:/Resources/sessions_16.png</iconset>
        </attribute>
        <attribute name="title">
@@ -75,6 +75,19 @@
             </property>
            </widget>
           </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
          </layout>
         </item>
         <item>
@@ -84,7 +97,7 @@
       </widget>
       <widget class="QWidget" name="controlTab">
        <attribute name="icon">
-        <iconset resource="qml.qrc">
+        <iconset>
          <normaloff>:/Resources/control_parameters_16.png</normaloff>:/Resources/control_parameters_16.png</iconset>
        </attribute>
        <attribute name="title">

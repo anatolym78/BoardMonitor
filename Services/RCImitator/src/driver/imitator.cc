@@ -34,7 +34,6 @@ void DriverImitator::start() {
     emitStateChanged(state_);
 
     loop_timer_->start(10);
-    //loop_timer_->start(100);
 }
 
 void DriverImitator::stop() {

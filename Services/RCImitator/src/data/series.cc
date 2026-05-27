@@ -28,14 +28,15 @@ namespace radio::data
 
 	void Series::operator()(BatteryVoltage& voltage)
 	{
-		voltage.voltage = static_cast<decltype(voltage.voltage)>(voltage_func(_us_timestamp));
+		using VoltageType = decltype(voltage.voltage);
+		voltage.voltage = static_cast<VoltageType>(voltage_func(_us_timestamp));
 	}
 
 	// =========================== flags group ====================
 
 	void Series::operator()(ArmingFlag& arming_flag)
 	{
-		arming_flag.armed = 0;
+		arming_flag.armed = false;
 	}
 
 	void Series::operator()(UsageFlag& usage_flag)
@@ -93,15 +94,16 @@ namespace radio::data
 
 	void Series::operator()(TotalThrottle& throttle)
 	{
-		throttle.throttle = 0;
+		throttle.throttle = static_cast<decltype(throttle.throttle)>(throttle_func(_us_timestamp));
 	}
 
 	void Series::operator()(Adjustments& adjustments)
 	{
-		adjustments.motors[0] = 0;
-		adjustments.motors[1] = 0;
-		adjustments.motors[2] = 0;
-		adjustments.motors[3] = 0;
+		using MotorValueType = decltype(adjustments.motors[0]);
+		adjustments.motors[0] = std::remove_reference_t<MotorValueType>(adjustments_one_func(_us_timestamp));
+		adjustments.motors[1] = std::remove_reference_t<MotorValueType>(adjustments_two_func(_us_timestamp));
+		adjustments.motors[2] = std::remove_reference_t<MotorValueType>(adjustments_three_func(_us_timestamp));
+		adjustments.motors[3] = std::remove_reference_t<MotorValueType>(adjustments_four_func(_us_timestamp));
 	}
 }
 

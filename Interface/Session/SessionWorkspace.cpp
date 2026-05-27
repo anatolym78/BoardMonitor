@@ -34,8 +34,8 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	QSplitter* splitter = new QSplitter(Qt::Horizontal, this);
 	splitter->addWidget(parametersContainer);
 	splitter->addWidget(m_chartsPanel);
-	splitter->setStretchFactor(0, 3);
-	splitter->setStretchFactor(1, 6);
+	splitter->setStretchFactor(0, 1);
+	splitter->setStretchFactor(1, 8);
 	splitter->setChildrenCollapsible(false);
 
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);

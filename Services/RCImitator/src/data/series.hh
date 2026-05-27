@@ -26,6 +26,22 @@ namespace radio
 			float offset_ = 0;
 		};
 
+		class EllipseFunction
+		{
+		public:
+			EllipseFunction(float a, float b, float period, float offset_y = 0, float offset_x = 0) :
+				amplitude_a_(a), amplitude_b_(b), period_in_sec_(period), offset_y_(offset_y), offset_x_(offset_x)
+			{
+
+			}
+			float amplitude_a_ = 10;
+			float amplitude_b_ = 5;
+			float period_in_sec_ = 10;
+			float phase_ = 0;
+			float offset_y_ = 0;
+			float offset_x_ = 0;
+		};
+
 		class Series
 		{
 		private:
@@ -35,6 +51,14 @@ namespace radio
 			SinusFunction angle_yaw_func = SinusFunction(30, 20, 3.14159265359f);
 			SinusFunction ground_speed_func =  SinusFunction(10, 18, 0);
 			SinusFunction voltage_func =  SinusFunction(2, 5, 0, 12);
+			SinusFunction throttle_func = SinusFunction(40, 10, 0, 250);
+			SinusFunction adjustments_one_func = SinusFunction(25, 5, 0, 300);
+			SinusFunction adjustments_two_func = SinusFunction(30, 5, 1.57079632679f, 300);
+			SinusFunction adjustments_three_func = SinusFunction(20, 5, 3.0f, 300);
+			SinusFunction adjustments_four_func = SinusFunction(25, 5, 4.71238898038f, 300);
+			SinusFunction acceleration_x_func = SinusFunction(5, 10, 0);
+			SinusFunction acceleration_y_func = SinusFunction(5, 10, 1);
+			SinusFunction acceleration_z_func = SinusFunction(5, 10, 2);
 
 		public:
 			Series() = default;
