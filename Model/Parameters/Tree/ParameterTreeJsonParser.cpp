@@ -113,7 +113,6 @@ void ParameterTreeJsonParser::updateJson(const QString &jsonString, ParameterTre
             return;
         }
 
-        // Новый формат: { "groupName": [ { "label": "...", "value": ... }, ... ], ... }
         if (!obj.isEmpty())
         {
             bool hasGroupedArray = false;

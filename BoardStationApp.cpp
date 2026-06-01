@@ -31,14 +31,31 @@ BoardStationApp::BoardStationApp(int &argc, char **argv)
 	
 	m_driverAdapter = new DriverAdapter("BoardMonitor_plugin", this);
 			 
-	m_uplinkParametersModel = new UplinkParametersTreeModel(this);
-	loadUplinkParameters();
+	setupUplinkParameters();
 
 	m_debugViewModel = new DebugViewModel(this);
 
 	connectSignals(); 
 
 	m_driverAdapter->startListening();
+}
+
+void BoardStationApp::setupUplinkParameters()
+{
+	m_uplinkParametersModel = new UplinkParametersTreeModel(this);
+
+	QString configPath = QApplication::applicationDirPath() + "/configuration.json";
+
+	ParameterTreeJsonParser parser(this);
+
+	QFile configFile(configPath);
+	configFile.open(QIODevice::ReadOnly | QIODevice::Text);
+	QTextStream textStream(&configFile);
+	auto jsonContent = textStream.readAll();
+	configFile.close();
+	auto storage = parser.parseJson(jsonContent);
+
+	m_uplinkParametersModel->setSnapshot(storage, false);
 }
 
 void BoardStationApp::connectSignals()
@@ -86,16 +103,8 @@ void BoardStationApp::connectSignals()
 			});
 	}
 
-	// connect(m_uplinkParametersModel, &UplinkParametersModel::parameterChanged,
-	// 	m_driverAdapter, &DriverAdapter::sendParameter);
-
-	//// Подключаем сигнал отправки данных к драйверу для логирования в файл
-	//if (m_driver)
-	//{
-	//	// old driver
-	//	connect(m_driver, &drv::IDriver::dataSent,
-	//		this, &BoardStationApp::onDriverDataSent);
-	//}
+	 //connect(m_uplinkParametersModel, &UplinkParametersModel::parameterChanged,
+	 //	m_driverAdapter, &DriverAdapter::sendParameter);
 
 	connect(this, &QApplication::aboutToQuit, this, &BoardStationApp::close);
 }
@@ -229,57 +238,6 @@ void BoardStationApp::removeRecordFromDatabase(int index)
 	m_sessionsListModel->removeSession(index);
 }
 
-void BoardStationApp::loadUplinkParameters()
-{
-	qDebug() << "BoardStationApp: Loading new uplink parameters from configuration.json";
-	
-	// Создаем читатель конфигурации
-	AppConfigurationReader reader;
-	
-	// Формируем полный путь к файлу конфигурации
-	QString configPath = QApplication::applicationDirPath() + "/configuration.json";
-	qDebug() << "BoardStationApp: Configuration path:" << configPath;
-	
-	// Загружаем конфигурацию
-	if (!reader.loadConfiguration(configPath))
-	{
-		qWarning() << "BoardStationApp: Failed to load configuration from" << configPath;
-		return;
-	}
-	
-	// Получаем узел с параметрами
-	QJsonArray parametersArray = reader.getParametersNode();
-	if (parametersArray.isEmpty())
-	{
-		qWarning() << "BoardStationApp: Parameters node is empty or not found";
-		return;
-	}
-	
-	// Создаем парсер новых параметров для ParameterTreeStorage
-	ParameterTreeJsonParser parser(this);
-	
-	// Создаем хранилище для uplink параметров
-	ParameterTreeStorage* uplinkParametersStorage = new ParameterTreeStorage(this);
-	
-	// Парсим параметры в ParameterTreeStorage
-	parser.updateJsonFromArray(parametersArray, uplinkParametersStorage);
-	
-	if (!parser.getLastError().isEmpty())
-	{
-		qWarning() << "BoardStationApp: Failed to parse uplink parameters. Error:" << parser.getLastError();
-		return;
-	}
-	
-	qDebug() << "BoardStationApp: Successfully loaded" << uplinkParametersStorage->childCount() << "top-level parameter groups";
-	
-	// Устанавливаем параметры в модель
-	if (m_uplinkParametersModel)
-	{
-		m_uplinkParametersModel->setSnapshot(uplinkParametersStorage, false);
-		qDebug() << "BoardStationApp: Parameters set to model";
-	}
-}
-
 void BoardStationApp::sendParametersToBoard()
 {
 	m_driverAdapter->sendParameterTreeSnapshot(m_uplinkParametersModel->storage());
@@ -310,3 +268,5 @@ void BoardStationApp::onDriverDataSent(const QString& jsonString)
 BoardStationApp::~BoardStationApp()
 {
 }
+
+

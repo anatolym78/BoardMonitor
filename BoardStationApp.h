@@ -24,23 +24,6 @@
 
 #include <boost/dll/shared_library.hpp>
 
-class EventPrinter : public QObject {
-	Q_OBJECT
-
-public slots:
-	void onDataAvailable(const QString& data) {
-		std::cout << "[SIGNAL] dataAvailable: length=" << data.length()
-			<< ", preview: " << data.left(50).toStdString()
-			<< (data.length() > 50 ? "..." : "") << std::endl;
-	}
-
-	void onStateChanged(radio::IDriver::State state) {
-		std::cout << "[SIGNAL] stateChanged: "
-			<< (state == radio::IDriver::State::kConnected ? "Connected" : "Disconnected")
-			<< std::endl;
-	}
-};
-
 class BoardMessagesSqliteWriter;
 
 class BoardStationApp : public QApplication
@@ -50,6 +33,9 @@ class BoardStationApp : public QApplication
 public:
 	BoardStationApp(int &argc, char **argv);
 	~BoardStationApp();
+
+	// Create and configure uplink parameters based on the current configuration
+	void setupUplinkParameters();
 
 	// Сохранение живых данных в базу
 	bool saveLiveData();
@@ -82,9 +68,7 @@ private slots:
 	void onDriverDataSent(const QString& jsonString);
    
 private:
-	EventPrinter printer;
 	std::unique_ptr<radio::IDriverBuilder> m_driverBuilder;
-	/** Удерживает RCImitator_plugin.dll загруженной, пока живёт драйвер из плагина. */
 	boost::dll::shared_library m_rcImitatorPluginLibrary;
 	std::shared_ptr<radio::IDriver> m_driverHolder;
 	DriverAdapter *m_driverAdapter;
@@ -99,7 +83,6 @@ private:
 	QThread* m_saveThread = nullptr;   // активный поток сохранения (nullptr = нет)
 
 private:
-	void loadUplinkParameters();
 	void connectSignals();
 };
 
