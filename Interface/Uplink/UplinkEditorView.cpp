@@ -5,6 +5,7 @@
 #include "../../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
 #include "../../Model/Parameters/Tree/ParameterTreeStorage.h"
 #include "../../Model/Parameters/Tree/ParameterTreeGroupItem.h"
+#include "../../Model/Parameters/Tree/ParameterTreeArrayItem.h"
 #include "../../Model/DriverAdapter.h"
 #include "../../ViewModel/UplinkParametersTreeModel.h"
 
@@ -21,6 +22,63 @@
 #include <QTimer>
 #include <QDebug>
 #include <QMessageBox>
+#include <QDateTime>
+
+namespace {
+
+ParameterTreeItem* replicatePathToSnapshot(ParameterTreeItem* targetNode, ParameterTreeStorage* snapshot)
+{
+	if (!targetNode || targetNode->type() == ParameterTreeItem::ItemType::Root)
+	{
+		return snapshot;
+	}
+
+	QList<ParameterTreeItem*> path;
+	for (ParameterTreeItem* node = targetNode;
+		 node && node->type() != ParameterTreeItem::ItemType::Root;
+		 node = node->parentItem())
+	{
+		path.prepend(node);
+	}
+
+	ParameterTreeItem* currentParent = snapshot;
+	for (ParameterTreeItem* node : path)
+	{
+		ParameterTreeItem* child = currentParent->findChildByLabel(node->label());
+		if (!child)
+		{
+			switch (node->type())
+			{
+			case ParameterTreeItem::ItemType::Group:
+				child = new ParameterTreeGroupItem(node->label(), currentParent);
+				break;
+			case ParameterTreeItem::ItemType::Array:
+				child = new ParameterTreeArrayItem(node->label(), currentParent);
+				break;
+			default:
+				return currentParent;
+			}
+			currentParent->appendChild(child);
+		}
+		currentParent = child;
+	}
+
+	return currentParent;
+}
+
+void copyHistoryItemToSnapshot(ParameterTreeHistoryItem* source,
+	ParameterTreeItem* parent,
+	const QVariant& value)
+{
+	auto* copy = new ParameterTreeHistoryItem(source->label(), parent);
+	copy->addValue(value, QDateTime::currentDateTime());
+	copy->setControl(source->control());
+	copy->setMin(source->min());
+	copy->setMax(source->max());
+	parent->appendChild(copy);
+}
+
+} // namespace
 
 UplinkEditorView::UplinkEditorView(QWidget *parent)
 	: QTreeView(parent)
@@ -77,8 +135,7 @@ void UplinkEditorView::setSendDataImmediately(bool immediately)
 {
 	m_sendDataImmediately = immediately;
 
-	QMessageBox::information(nullptr, "info", immediately ? "checked" : "unchecked");
-
+	//QMessageBox::information(nullptr, "info", immediately ? "checked" : "unchecked");
 }
 
 void UplinkEditorView::setupControlWidgets()
@@ -449,46 +506,46 @@ void UplinkEditorView::sendParameterSnapshot(const QModelIndex &index, const QVa
 
 	auto historyItem = static_cast<ParameterTreeHistoryItem*>(treeItem);
 
-	// Создаём временное хранилище для snapshot только этого параметра
 	ParameterTreeStorage* snapshot = new ParameterTreeStorage();
 
-	// Создаём копию параметра с новым значением
-	ParameterTreeHistoryItem* paramCopy = new ParameterTreeHistoryItem(historyItem->label(), snapshot);
-	paramCopy->addValue(value, QDateTime::currentDateTime());
-	paramCopy->setControl(historyItem->control());
-	paramCopy->setMin(historyItem->min());
-	paramCopy->setMax(historyItem->max());
+	QString sentLabel;
+	QVariant sentValue;
 
-	// Восстанавливаем путь к параметру через родительские группы
-	QStringList pathParts;
-	ParameterTreeItem* current = historyItem->parentItem();
-	while (current && current->type() != ParameterTreeItem::ItemType::Root)
+	ParameterTreeItem* parentItem = historyItem->parentItem();
+	if (parentItem && parentItem->type() == ParameterTreeItem::ItemType::Array)
 	{
-		pathParts.prepend(current->label());
-		current = current->parentItem();
-	}
+		auto* arrayItem = static_cast<ParameterTreeArrayItem*>(parentItem);
+		ParameterTreeItem* arrayInSnapshot = replicatePathToSnapshot(arrayItem, snapshot);
 
-	// Строим иерархию в snapshot
-	ParameterTreeItem* currentParent = snapshot;
-	for (const QString& part : pathParts)
-	{
-		ParameterTreeItem* child = currentParent->findChildByLabel(part);
-		if (!child)
+		QVariantList arrayValues;
+		for (int i = 0; i < arrayItem->childCount(); ++i)
 		{
-			child = new ParameterTreeGroupItem(part, currentParent);
-			currentParent->appendChild(child);
+			auto* childHistory = static_cast<ParameterTreeHistoryItem*>(arrayItem->child(i));
+			if (!childHistory)
+			{
+				continue;
+			}
+
+			const QVariant childValue = (childHistory == historyItem) ? value : childHistory->lastValue();
+			copyHistoryItemToSnapshot(childHistory, arrayInSnapshot, childValue);
+			arrayValues.append(childValue);
 		}
-		currentParent = child;
+
+		sentLabel = arrayItem->fullName();
+		sentValue = arrayValues;
+	}
+	else
+	{
+		ParameterTreeItem* parentInSnapshot = replicatePathToSnapshot(parentItem, snapshot);
+		copyHistoryItemToSnapshot(historyItem, parentInSnapshot, value);
+
+		sentLabel = historyItem->fullName();
+		sentValue = value;
 	}
 
-	// Добавляем параметр в правильное место иерархии
-	currentParent->appendChild(paramCopy);
-
-	// Отправляем snapshot
 	m_driverAdapter->sendParameterTreeSnapshot(snapshot);
 
-	qDebug() << "UplinkEditorView: Sent parameter" << historyItem->fullName() 
-	         << "with value" << value;
+	qDebug() << "UplinkEditorView: Sent parameter" << sentLabel << "with value" << sentValue;
 
 	// Удаляем временный snapshot
 	snapshot->deleteLater();

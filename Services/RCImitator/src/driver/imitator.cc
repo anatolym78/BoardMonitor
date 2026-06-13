@@ -6,6 +6,10 @@
 #include "../data/series_generator.hh"
 #include "../data/serializer.hh"
 
+#include <qfile.h>
+#include <qtextstream.h>
+#include <qjsondocument.h>
+
 namespace radio {
 namespace driver {
 
@@ -58,6 +62,15 @@ void DriverImitator::write(const QString& data) {
     if (enable_ack_ && !is_shutdown_) {
         ack_data_ = data;
     }
+
+
+	QJsonDocument json_doc = QJsonDocument::fromJson(data.toUtf8());
+	auto intendedData = json_doc.toJson(QJsonDocument::Indented);
+    QFile file("output_data.json");
+    file.open(QIODevice::WriteOnly);
+    QTextStream textStream(&file);
+    textStream << intendedData;
+    file.close();
 }
 
 void DriverImitator::onLoopTimerTimeout() {

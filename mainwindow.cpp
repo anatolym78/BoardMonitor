@@ -253,9 +253,9 @@ void MainWindow::deleteRecord()
 
 void MainWindow::sendMessageToBoard()
 {
-	expandLiveDataTelemetry();
+	//expandLiveDataTelemetry();
 
-	return;
+	//return;
 
 	app()->sendParametersToBoard();
 }
