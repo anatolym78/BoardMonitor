@@ -49,6 +49,9 @@ public:
 	};
 
 	void toggleParameter(ParameterTreeItem* parameter);// QString chartName);
+	void showParameter(ParameterTreeItem* parameter);
+	void hideParameter(ParameterTreeItem* parameter);
+	bool isParameterDisplayed(ParameterTreeItem* parameter) const;
 
 	explicit ChatViewGridModel(QObject *parent = nullptr);
 
@@ -138,6 +141,7 @@ private:
 	// Вспомогательные методы
 	bool parameterExistsInHistory(const QString &label) const;
 	void updateValueAxisRange(int chartIndex);
+	void collectHistoryItems(ParameterTreeItem* item, QList<ParameterTreeHistoryItem*>& out) const;
 
 private:
 	DataPlayer* player() const { return m_dataPlayer; }

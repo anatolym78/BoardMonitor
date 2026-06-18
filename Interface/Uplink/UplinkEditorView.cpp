@@ -491,6 +491,11 @@ QWidget* UplinkEditorView::createControlWidget(const QModelIndex &index) const
 
 void UplinkEditorView::sendParameterSnapshot(const QModelIndex &index, const QVariant &value) const
 {
+	if (!m_sendDataImmediately)
+	{
+		return;
+	}
+
 	if (!m_driverAdapter || !m_parametersModel)
 	{
 		qWarning() << "UplinkEditorView::sendParameterSnapshot - DriverAdapter or ParametersModel not set";

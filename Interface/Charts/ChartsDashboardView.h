@@ -7,6 +7,7 @@
 #include "../../ViewModel/ChatViewGridModel.h"
 #include "ParametersChartView.h"
 #include "../../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
+#include "../../Model/Parameters/Tree/ParameterTreeItem.h"
 
 class QScrollArea;
 class QGridLayout;
@@ -53,6 +54,7 @@ private:
 
 private:
 	void addSeriesToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* parameter);
+	void addHistoryDescendantsToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* item);
 	QList<ParametersChartView*> chartViewList() const;
 	void hoverSeries(QtCharts::QAbstractSeries* series);
 	void restoreSeriesColor(QtCharts::QAbstractSeries* series);

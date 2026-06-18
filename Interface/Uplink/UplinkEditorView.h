@@ -36,7 +36,7 @@ private:
     void sendParameterSnapshot(const QModelIndex &index, const QVariant &value) const;
 
 private:
-    bool m_sendDataImmediately = true; // Для тестовых целей, в реальной работе будет всегда true
+    bool m_sendDataImmediately = false;
     UplinkEditorDelegates* m_delegate = nullptr;
     DriverAdapter* m_driverAdapter = nullptr;
     UplinkParametersTreeModel* m_parametersModel = nullptr;

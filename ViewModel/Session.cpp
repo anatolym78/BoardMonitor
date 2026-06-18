@@ -1,9 +1,7 @@
 #include "Session.h"
 #include "./../Model/Parameters/Tree/ParameterTreeStorage.h"
-#include "./../Model/Parameters/Tree/ParameterTreeStorage.h"
-#include "./../Model/Parameters/Tree/ParameterTreeStorage.h"
+#include "./../Model/Parameters/Tree/ParameterTreeItem.h"
 #include <QDebug>
-#include <QMessageBox>
 #include <functional>
 
 Session::Session(QObject *parent)
@@ -47,76 +45,120 @@ ParameterTreeStorage* Session::storage() const
 	return m_treeStorage;
 }
 
-void Session::createChartFromSelectedParameter()
+namespace {
+
+void updateChartVisibilityForSelection(BoardParametersTreeModel* parametersModel,
+	ChatViewGridModel* chartsModel,
+	const QModelIndex& currentIndex)
 {
-	if (!m_parametersSelectionModel || !m_chartsModel)
-	{
-		qWarning() << "Session::createChartFromSelectedParameter: selectionModel or chartsModel is null";
-		return;
-	}
-
-	// Получаем текущий выбранный индекс
-	QModelIndex currentIndex = m_parametersSelectionModel->currentIndex();
-	if (!currentIndex.isValid())
-	{
-		qWarning() << "Session::createChartFromSelectedParameter: no parameter selected";
-		return;
-	}
-
-	// Получаем элемент дерева из индекса
-	auto treeItem = static_cast<ParameterTreeItem*>(currentIndex.internalPointer());
-	if (!treeItem)
-	{
-		qWarning() << "Session::createChartFromSelectedParameter: treeItem is null";
-		return;
-	}
-
-	//// Проверяем, что это History item (листовой элемент, для которого можно создать график)
-	//if (treeItem->type() != ParameterTreeItem::ItemType::History)
-	//{
-	//	qWarning() << "Session::createChartFromSelectedParameter: selected item is not a History item";
-	//	return;
-	//}
-
-	// Получаем label параметра
-	QString parameterLabel = treeItem->fullName();
-	if (parameterLabel.isEmpty())
-	{
-
-		qWarning() << "Session::createChartFromSelectedParameter: parameter label is empty";
-		return;
-	}
-
-	//QMessageBox::information(nullptr, "BoardStation", treeItem->fullName());
-
-	// Добавляем серию в модель графиков
-	m_chartsModel->toggleParameter(treeItem);
-
-	// Обновляем статус видимости в модели параметров (рекурсивно для массивов)
 	std::function<void(const QModelIndex&)> updateVisibility;
-	updateVisibility = [&](const QModelIndex& index) 
+	updateVisibility = [&](const QModelIndex& index)
 	{
 		auto item = static_cast<ParameterTreeItem*>(index.internalPointer());
-		if (!item) return;
+		if (!item)
+		{
+			return;
+		}
 
 		if (item->type() == ParameterTreeItem::ItemType::History)
 		{
-			bool isVisible = m_chartsModel->hasSeries(item->fullName());
-			m_parametersModel->setData(index, isVisible, BoardParametersTreeModel::ChartVisibilityRole);
+			const bool isVisible = chartsModel->hasSeries(item->fullName());
+			parametersModel->setData(index, isVisible, BoardParametersTreeModel::ChartVisibilityRole);
 		}
 
-		// Обходим детей
-		int rows = m_parametersModel->rowCount(index);
+		const int rows = parametersModel->rowCount(index);
 		for (int i = 0; i < rows; ++i)
 		{
-			QModelIndex childIndex = m_parametersModel->index(i, 0, index);
-			updateVisibility(childIndex);
+			updateVisibility(parametersModel->index(i, 0, index));
 		}
 	};
 
 	updateVisibility(currentIndex);
+}
 
-	qDebug() << "Session::createChartFromSelectedParameter: added chart for parameter" << parameterLabel;
+ParameterTreeItem* selectedParameterTreeItem(QItemSelectionModel* selectionModel)
+{
+	if (!selectionModel)
+	{
+		return nullptr;
+	}
+
+	const QModelIndex currentIndex = selectionModel->currentIndex();
+	if (!currentIndex.isValid())
+	{
+		return nullptr;
+	}
+
+	return static_cast<ParameterTreeItem*>(currentIndex.internalPointer());
+}
+
+} // namespace
+
+void Session::showChartFromSelectedParameter()
+{
+	if (!m_parametersSelectionModel || !m_chartsModel)
+	{
+		qWarning() << "Session::showChartFromSelectedParameter: selectionModel or chartsModel is null";
+		return;
+	}
+
+	const QModelIndex currentIndex = m_parametersSelectionModel->currentIndex();
+	if (!currentIndex.isValid())
+	{
+		qWarning() << "Session::showChartFromSelectedParameter: no parameter selected";
+		return;
+	}
+
+	auto* treeItem = selectedParameterTreeItem(m_parametersSelectionModel);
+	if (!treeItem)
+	{
+		qWarning() << "Session::showChartFromSelectedParameter: treeItem is null";
+		return;
+	}
+
+	if (treeItem->fullName().isEmpty())
+	{
+		qWarning() << "Session::showChartFromSelectedParameter: parameter label is empty";
+		return;
+	}
+
+	if (m_chartsModel->isParameterDisplayed(treeItem))
+	{
+		return;
+	}
+
+	m_chartsModel->showParameter(treeItem);
+	updateChartVisibilityForSelection(m_parametersModel, m_chartsModel, currentIndex);
+
+	qDebug() << "Session::showChartFromSelectedParameter: added chart for parameter" << treeItem->fullName();
+}
+
+void Session::hideChartFromSelectedParameter()
+{
+	if (!m_parametersSelectionModel || !m_chartsModel)
+	{
+		qWarning() << "Session::hideChartFromSelectedParameter: selectionModel or chartsModel is null";
+		return;
+	}
+
+	const QModelIndex currentIndex = m_parametersSelectionModel->currentIndex();
+	if (!currentIndex.isValid())
+	{
+		qWarning() << "Session::hideChartFromSelectedParameter: no parameter selected";
+		return;
+	}
+
+	auto* treeItem = selectedParameterTreeItem(m_parametersSelectionModel);
+	if (!treeItem)
+	{
+		qWarning() << "Session::hideChartFromSelectedParameter: treeItem is null";
+		return;
+	}
+
+	m_chartsModel->hideParameter(treeItem);
+	updateChartVisibilityForSelection(m_parametersModel, m_chartsModel, currentIndex);
+
+	qDebug() << "Session::hideChartFromSelectedParameter: removed chart series for parameter" << treeItem->fullName();
 }
 
 Session::~Session()

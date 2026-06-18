@@ -9,7 +9,7 @@
 class TelemetryDataView;
 class ChartsDashboardView;
 class PlaybackView;
-class QPushButton;
+class QToolButton;
 
 /**
  * @brief Основное рабочее пространство для одной сессии.
@@ -31,14 +31,16 @@ public:
     PlaybackView* playerView() const { return m_playerView; }
 
 private slots:
-    void onAddChartButtonClicked();
+    void onShowChartButtonClicked();
+    void onHideChartButtonClicked();
 
 private:
     QPointer<Session> m_session; 
     TelemetryDataView* m_parametersTree;
     ChartsDashboardView* m_chartsPanel;
     PlaybackView* m_playerView;
-    QPushButton* m_addChartButton;
+    QToolButton* m_showChartButton;
+    QToolButton* m_hideChartButton;
 };
 
 #endif // SESSIONFRAME_H

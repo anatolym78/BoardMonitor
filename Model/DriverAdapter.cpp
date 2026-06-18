@@ -42,8 +42,8 @@ void DriverAdapter::createDriver(std::string pluginFilename)
 
     m_driver = builder->setDelay(1).enableAck(false).enableShutdown(true).get();
 
-    //
-    m_driver->enableShutdown(false);
+	// Убираем отключение драйвера для имитатора, чтобы он не отключался через случайные интервалы
+    //m_driver->enableShutdown(false);
 
     qDebug() << "The driver object has been constructed";
 

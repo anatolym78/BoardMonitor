@@ -16,7 +16,9 @@
 
 #include <QToolButton>
 
-#include "../../Model/Parameters/Tree/ParameterTreeArrayItem.h"
+#include <QToolButton>
+
+#include "../../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
 
 ChartsDashboardView::ChartsDashboardView(QWidget *parent)
 	: QFrame(parent)
@@ -170,27 +172,43 @@ void ChartsDashboardView::onAddChart(int chartIndex, ParameterTreeItem* paramete
 		addSeriesToChart(chartIndex, chart, parameter);
 	}
 
-	// create series list
-	if (parameter->type() == ParameterTreeItem::ItemType::Array)
+	if (parameter->type() == ParameterTreeItem::ItemType::Array
+		|| parameter->type() == ParameterTreeItem::ItemType::Group)
 	{
 		chart->setTitle(parameterFullName);
-		auto parameterList = static_cast<ParameterTreeArrayItem*>(parameter);
-
-		for (auto parameter : parameterList->children())
-		{
-			if (parameter->type() == ParameterTreeItem::ItemType::History)
-			{
-				addSeriesToChart(chartIndex, chart, parameter);
-			}
-		}
+		addHistoryDescendantsToChart(chartIndex, chart, parameter);
 	}
 
 	// После добавления - пересчитать размеры ячеек, чтобы они вписались по ширине и имели квадратную форму
 	updateCellSizes();
 }
 
+void ChartsDashboardView::addHistoryDescendantsToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* item)
+{
+	if (!item)
+	{
+		return;
+	}
+
+	if (item->type() == ParameterTreeItem::ItemType::History)
+	{
+		addSeriesToChart(chartIndex, chart, item);
+		return;
+	}
+
+	for (ParameterTreeItem* child : item->children())
+	{
+		addHistoryDescendantsToChart(chartIndex, chart, child);
+	}
+}
+
 void ChartsDashboardView::addSeriesToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* parameter)
 {
+	if (!parameter || m_chartsModel->hasSeries(parameter->fullName()))
+	{
+		return;
+	}
+
 	auto timeAxis = (QtCharts::QDateTimeAxis*)chart->axisX();
 	auto valueAxis = (QtCharts::QValueAxis*)chart->axisY();
 
@@ -227,31 +245,34 @@ void ChartsDashboardView::addSeriesToChart(int chartIndex, QtCharts::QChart* cha
 
 void ChartsDashboardView::onParameterRemoved(int chartIndex, const QString& label)
 {
-	for (auto i = 0; i < m_gridLayout->count(); i++)
+	auto chartView = getChartView(chartIndex);
+	if (!chartView)
 	{
-		auto item = m_gridLayout->itemAt(i);
-		auto chartView = (ParametersChartView*)(item->widget());
-		if (chartView->chartIndex() == i)
+		return;
+	}
+
+	auto chart = chartView->chart();
+	if (!chart)
+	{
+		return;
+	}
+
+	for (auto series : chart->series())
+	{
+		if (series->name() == label)
 		{
-			auto chart = chartView->chart();
-			for (auto seires : chart->series())
-			{
-				if (seires->name() == label)
-				{
-					chart->removeSeries(seires);
-					seires->deleteLater();
-					break;
-				}
-			}
-
-			if (chart->series().isEmpty())
-			{
-				m_gridLayout->removeWidget(chartView);
-
-				chartView->deleteLater();
-			}
+			chart->removeSeries(series);
+			series->deleteLater();
+			break;
 		}
 	}
+
+	if (chart->series().isEmpty())
+	{
+		m_gridLayout->removeWidget(chartView);
+		chartView->deleteLater();
+	}
+
 	updateCellSizes();
 }
 

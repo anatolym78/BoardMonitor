@@ -23,6 +23,97 @@ void ChatViewGridModel::setPlayer(DataPlayer* dataPlayer)
 		this, &ChatViewGridModel::onPlayed);
 }
 
+void ChatViewGridModel::collectHistoryItems(ParameterTreeItem* item, QList<ParameterTreeHistoryItem*>& out) const
+{
+	if (!item)
+	{
+		return;
+	}
+
+	if (item->type() == ParameterTreeItem::ItemType::History)
+	{
+		out.append(static_cast<ParameterTreeHistoryItem*>(item));
+		return;
+	}
+
+	for (ParameterTreeItem* child : item->children())
+	{
+		collectHistoryItems(child, out);
+	}
+}
+
+bool ChatViewGridModel::isParameterDisplayed(ParameterTreeItem* parameter) const
+{
+	if (!parameter)
+	{
+		return false;
+	}
+
+	if (parameter->type() == ParameterTreeItem::ItemType::History)
+	{
+		return hasSeries(parameter->fullName());
+	}
+
+	QList<ParameterTreeHistoryItem*> historyItems;
+	collectHistoryItems(parameter, historyItems);
+	if (historyItems.isEmpty())
+	{
+		return false;
+	}
+
+	for (ParameterTreeHistoryItem* historyItem : historyItems)
+	{
+		if (!hasSeries(historyItem->fullName()))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void ChatViewGridModel::showParameter(ParameterTreeItem* parameter)
+{
+	if (!parameter || isParameterDisplayed(parameter))
+	{
+		return;
+	}
+
+	const QString parameterFullName = parameter->fullName();
+	beginInsertRows(QModelIndex(), rowCount(QModelIndex()), rowCount(QModelIndex()));
+	m_charts.append(ChartInfo{ parameterFullName, QStringList() << parameterFullName });
+	endInsertRows();
+
+	emit parameterAdded(m_charts.count() - 1, parameter);
+}
+
+void ChatViewGridModel::hideParameter(ParameterTreeItem* parameter)
+{
+	if (!parameter)
+	{
+		return;
+	}
+
+	QList<ParameterTreeHistoryItem*> historyItems;
+	if (parameter->type() == ParameterTreeItem::ItemType::History)
+	{
+		historyItems.append(static_cast<ParameterTreeHistoryItem*>(parameter));
+	}
+	else
+	{
+		collectHistoryItems(parameter, historyItems);
+	}
+
+	for (ParameterTreeHistoryItem* historyItem : historyItems)
+	{
+		const QString label = historyItem->fullName();
+		if (hasSeries(label))
+		{
+			removeSeries(label);
+		}
+	}
+}
+
 void ChatViewGridModel::toggleParameter(ParameterTreeItem* parameter)//QString chartName)
 {
 	if (parameter == nullptr) return;
@@ -31,23 +122,10 @@ void ChatViewGridModel::toggleParameter(ParameterTreeItem* parameter)//QString c
 	if (hasSeries(parameterFullName))
 	{
 		removeSeries(parameterFullName);
-
-		return;
-
-		auto chartIndex = findChartIndex(parameterFullName);
-		this->beginRemoveRows(QModelIndex(), chartIndex, chartIndex);
-		m_charts.removeAt(chartIndex);
-		this->endRemoveRows();
-
-		emit parameterNeedToRemove(chartIndex, parameterFullName);
 	}
 	else
 	{
-		beginInsertRows(QModelIndex(), rowCount(QModelIndex()), rowCount(QModelIndex()));
-		m_charts.append(ChartInfo{ parameterFullName, QStringList() << parameterFullName });
-		endInsertRows();
-
-		emit parameterAdded(m_charts.count() - 1, parameter);
+		showParameter(parameter);
 	}
 }
 
@@ -360,7 +438,6 @@ void ChatViewGridModel::removeSeries(const QString &label)
 	}
 	else
 	{
-		return; // !!!
 		updateValueAxisRange(chartIndex);
 	}
 }

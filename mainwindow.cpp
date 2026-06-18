@@ -192,6 +192,7 @@ void MainWindow::setApp(BoardStationApp *pApp)
 		// Настраиваем UplinkEditorView для отправки данных
 		ui->uplinkParametersView->setDriverAdapter(pApp->getDriverAdapter());
 		ui->uplinkParametersView->setParametersModel(pApp->getUplinkParametersModel());
+		ui->uplinkParametersView->setSendDataImmediately(ui->checkboxSendDataImmediately->isChecked());
 	}
 		
 	// Устанавливаем модель для консоли

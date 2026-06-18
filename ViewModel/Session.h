@@ -56,8 +56,8 @@ public:
 
 	bool isOpened() const { return m_opened; }
 
-	// Метод для создания графика из выбранного параметра
-	void createChartFromSelectedParameter();
+	void showChartFromSelectedParameter();
+	void hideChartFromSelectedParameter();
 
 signals:
 	void sessionChanged();
