@@ -1,10 +1,14 @@
 #ifndef SESSIONSLISTMODEL_H
 #define SESSIONSLISTMODEL_H
 
-#include <QAbstractListModel>
+#include <QAbstractItemModel>
 #include <QObject>
 #include <QDateTime>
+#include <QDate>
 #include <QList>
+#include <QSet>
+#include <QTimer>
+#include <QVector>
 #include "Session.h"
 #include "RecordedSessionsFactory.h"
 #include "LiveSessionFactory.h"
@@ -14,12 +18,12 @@
 #include "DriverDataPlayer.h"
 #include "LiveSession.h"
 
-class SessionsListModel : public QAbstractListModel
+class SessionsListModel : public QAbstractItemModel
 {
 	Q_OBJECT
 
 public:
-	enum SessionRoles 
+	enum SessionRoles
 	{
 		SessionIdRole = Qt::UserRole + 1,
 		SessionNameRole,
@@ -37,8 +41,10 @@ public:
 		ChartsModelRole,
 		TestColorRole,
 		IconRole,
-		SaveProgressRole,  // -1 = не сохраняется, 0-100 = процент записи
-		LoadProgressRole,  // -1 = не загружается, 0-100 = процент загрузки
+		SaveProgressRole,
+		LoadProgressRole,
+		IsDayFolderRole,
+		FlatSessionIndexRole,
 	};
 
 	explicit SessionsListModel(QObject *parent = nullptr);
@@ -48,23 +54,27 @@ public:
 	Q_INVOKABLE void startRecording ();
 	Q_INVOKABLE void stopRecording();
 	Q_INVOKABLE void setRecordingState(bool enable);
-	
-	// QAbstractListModel interface
+
+	int sessionCount() const { return m_sessions.size(); }
+
+	QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
+	QModelIndex parent(const QModelIndex& index) const override;
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	int columnCount(const QModelIndex& parent = QModelIndex()) const override;
 	QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 	QHash<int, QByteArray> roleNames() const override;
 
+	QModelIndex indexForFlatSession(int flatIndex) const;
+
 	Q_INVOKABLE QVariantMap get(int index) const;
 
-	// Методы для работы с данными
 	void setReader(BoardMessagesSqliteReader *reader);
 	Q_INVOKABLE void refreshSessions();
 	Q_INVOKABLE void addRecordedSession(const BoardMessagesSqliteReader::SessionInfo &sessionInfo);
-	void setSaveProgress(int pct);   // -1 сбрасывает прогресс, 0-100 обновляет
+	void setSaveProgress(int pct);
 	Q_INVOKABLE void updateSessionMessageCount(int sessionId, int messageCount);
 	Q_INVOKABLE void removeSession(int index);
-	
-	// Получение информации о сессии
+
 	Session* getSession(int index) const;
 	Session* getSessionById(int sessionId) const;
 	LiveSession* liveSession() const;
@@ -73,19 +83,16 @@ public:
 	int findSessionIndex(int sessionId) const;
 
 	Q_INVOKABLE void selectSession(int sessionIndex);
-	
-	// Методы для работы с живой сессией
+
 	bool createLiveSession();
 	void updateLiveSessionCounters();
 	void resetLiveSessionCounters();
-	
-	// Методы для переключения между сессиями
+
 	Q_INVOKABLE void switchToSession(int sessionIndex);
 	Q_INVOKABLE void switchToLiveSession();
 
 	Q_INVOKABLE void resetLiveSession();
-	
-	// Получение текущей активной сессии
+
 	Session* getCurrentActiveSession() const { return m_currentActiveSession; }
 
 	Session* operator [] (int index) const
@@ -95,17 +102,21 @@ public:
 
 	Session* session(int index) const
 	{
-		if (index >= 0 && index < rowCount())
+		if (index >= 0 && index < m_sessions.size())
 		{
 			return m_sessions[index];
 		}
 
 		return nullptr;
 	}
+
 signals:
 	void sessionsRefreshed();
 	void errorOccurred(const QString &error);
 	void sessionSwitched(Session* session);
+	void sessionInsertedAt(int flatIndex, Session* session);
+	void sessionRemovedAt(int flatIndex);
+	void sessionAboutToBeRemoved(int flatIndex);
 
 private slots:
 	void onRecordedSessionsCreated(const QList<Session*>& sessions);
@@ -113,30 +124,45 @@ private slots:
 	void onSessionChanged();
 	void onMessageCountChanged(int count);
 	void onParameterCountChanged(int count);
+	void flushLiveSessionListUpdate();
 
 private:
-	void sortSessions();
+	struct SessionTreeItem;
+
+	void sortSessionList();
+	void rebuildTree();
+	void clearTree();
+	SessionTreeItem* findSessionNode(Session* session) const;
+	SessionTreeItem* findDayFolder(const QDate& day) const;
+	int dayFolderInsertRow(const QDate& day) const;
+	bool insertSessionIntoTree(Session* session);
+	void removeSessionFromTree(Session* session);
+	void updateFlatIndices();
+	void notifySubtreeVisualRefresh(const QModelIndex& parentIndex);
+	SessionTreeItem* itemAt(const QModelIndex& index) const;
+	QModelIndex indexForItem(const SessionTreeItem* item) const;
+	void connectSessionSignals(Session* session);
 	void addSessionToList(Session* session);
 	void removeSessionFromList(Session* session);
-	void updateSessionInList(Session* session);
+	void updateSessionInList(Session* session, const QVector<int>& roles = QVector<int>());
 
 private:
 	BoardMessagesSqliteReader *m_reader;
 	bool m_recording = false;
 	QList<Session*> m_sessions;
 
-	// Фабрики для создания сессий
 	RecordedSessionsFactory *m_recordedSessionsFactory;
 	LiveSessionFactory *m_liveSessionFactory;
-	
-	// Указатель на живую сессию
+
 	Session* m_liveSession;
-	
-	// Указатель на текущую активную сессию
 	Session* m_currentActiveSession;
 
-	// Прогресс сохранения живой сессии (-1 = не сохраняется)
 	int m_liveSessionSaveProgress = -1;
+
+	SessionTreeItem* m_root = nullptr;
+	QSet<SessionTreeItem*> m_liveTreeNodes;
+	QTimer* m_liveListUpdateTimer = nullptr;
+	bool m_liveListUpdatePending = false;
 };
 
 #endif // SESSIONSLISTMODEL_H

@@ -27,6 +27,7 @@ public:
     void incrementMessageCount();
     void incrementParameterCount();
     void resetCounters();
+    void releaseLiveSession();
 
 signals:
     void liveSessionCreated(Session* session);

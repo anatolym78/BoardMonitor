@@ -111,7 +111,7 @@ void BoardStationApp::connectSignals()
 
 void BoardStationApp::close()
 {
-	for (auto i = 0; i < m_sessionsListModel->rowCount(); i++)
+	for (auto i = 0; i < m_sessionsListModel->sessionCount(); i++)
 	{
 		auto session = m_sessionsListModel->getSession(i);
 		session->player()->stop();
@@ -219,7 +219,7 @@ void BoardStationApp::removeRecordFromDatabase(int index)
 		return;
 
 	// Проверяем диапазон
-	if (index < 0 || index >= m_sessionsListModel->rowCount())
+	if (index < 0 || index >= m_sessionsListModel->sessionCount())
 		return;
 
 	// Получаем сессию

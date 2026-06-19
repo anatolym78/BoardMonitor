@@ -2,22 +2,38 @@
 #include "../../ViewModel/SessionsListModel.h"
 
 #include <QPainter>
-#include <QApplication>
-#include <QStyle>
 
-static constexpr int kRowHeight = 56;
-static constexpr int kIconSize  = 32;
-static constexpr int kMarginH   = 6;
+static constexpr int kSessionRowHeight = 44;
+static constexpr int kIconSize = 24;
+static constexpr int kMarginH = 6;
 static constexpr qreal kSelectedFontScale = 1.12;
+
+static void fillRowBackground(QPainter* painter, const QRect& rect,
+	const QStyleOptionViewItem& option)
+{
+	painter->fillRect(rect, option.palette.base());
+
+	if (option.state & QStyle::State_Selected)
+	{
+		// Лёгкий оттенок вместо насыщенного QPalette::Highlight
+		painter->fillRect(rect, QColor(33, 150, 243, 55));
+	}
+	else if (option.state & QStyle::State_MouseOver)
+	{
+		painter->fillRect(rect, QColor(0, 0, 0, 18));
+	}
+}
 
 SessionListDelegate::SessionListDelegate(QObject* parent)
 	: QStyledItemDelegate(parent)
 {}
 
-QSize SessionListDelegate::sizeHint(const QStyleOptionViewItem& /*option*/,
-                                     const QModelIndex& /*index*/) const
+QSize SessionListDelegate::sizeHint(const QStyleOptionViewItem& option,
+                                     const QModelIndex& index) const
 {
-	return QSize(0, kRowHeight);
+	Q_UNUSED(option)
+	Q_UNUSED(index)
+	return QSize(0, kSessionRowHeight);
 }
 
 void SessionListDelegate::paint(QPainter* painter,
@@ -26,22 +42,16 @@ void SessionListDelegate::paint(QPainter* painter,
 {
 	painter->save();
 
-	// Draw background and hover/selection state; suppress icon, text, and focus rect
-	QStyleOptionViewItem opt = option;
-	initStyleOption(&opt, index);
-	opt.text.clear();
-	opt.icon = QIcon();
-	opt.state &= ~QStyle::State_HasFocus;
-	QApplication::style()->drawControl(QStyle::CE_ItemViewItem, &opt, painter);
-
 	const QRect rect = option.rect;
+	fillRowBackground(painter, rect, option);
 
-	// Progress bar overlay (save / load)
+	const bool isFolder = index.data(SessionsListModel::IsDayFolderRole).toBool();
+
 	const int savePct = index.data(SessionsListModel::SaveProgressRole).toInt();
 	const int loadPct = index.data(SessionsListModel::LoadProgressRole).toInt();
-	const int pct     = (savePct >= 0) ? savePct : loadPct;
+	const int pct = (savePct >= 0) ? savePct : loadPct;
 
-	if (pct >= 0)
+	if (!isFolder && pct >= 0)
 	{
 		const QColor fillColor = (savePct >= 0)
 			? QColor(76, 175, 80, 160)
@@ -50,7 +60,9 @@ void SessionListDelegate::paint(QPainter* painter,
 		painter->fillRect(rect, QColor(210, 210, 210, 180));
 		const int filledWidth = rect.width() * pct / 100;
 		if (filledWidth > 0)
+		{
 			painter->fillRect(QRect(rect.left(), rect.top(), filledWidth, rect.height()), fillColor);
+		}
 
 		painter->setPen(Qt::black);
 		painter->drawText(rect, Qt::AlignCenter, QString("%1%").arg(pct));
@@ -58,7 +70,6 @@ void SessionListDelegate::paint(QPainter* painter,
 		return;
 	}
 
-	// Icon
 	const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
 	if (!icon.isNull())
 	{
@@ -68,28 +79,63 @@ void SessionListDelegate::paint(QPainter* painter,
 
 	const int textX = rect.left() + kMarginH + kIconSize + kMarginH;
 	const int textW = rect.right() - textX - kMarginH;
-	const int halfH = rect.height() / 2;
 
 	const bool selected = option.state & QStyle::State_Selected;
-
 	const QColor primaryColor = option.palette.color(QPalette::WindowText);
 	QColor secondaryColor = primaryColor;
 	secondaryColor.setAlpha(selected ? 180 : 130);
 
-	// Line 1 - session name (bold)
-	QFont nameFont = option.font;
-	nameFont.setBold(true);
+	if (isFolder)
+	{
+		QFont folderFont = option.font;
+		folderFont.setBold(true);
+		if (selected)
+		{
+			folderFont.setPointSizeF(folderFont.pointSizeF() * kSelectedFontScale);
+		}
+		painter->setFont(folderFont);
+		painter->setPen(primaryColor);
+		const QString folderLabel = index.data(SessionsListModel::SessionNameRole).toString();
+		painter->drawText(rect.adjusted(textX, 0, -kMarginH, 0),
+			Qt::AlignVCenter | Qt::AlignLeft, folderLabel);
+		painter->restore();
+		return;
+	}
+
+	const bool isLive = index.data(SessionsListModel::IsLiveSessionRole).toBool();
+	const int halfH = rect.height() / 2;
+
+	QFont primaryFont = option.font;
+	primaryFont.setBold(true);
 	if (selected)
 	{
-		nameFont.setPointSizeF(nameFont.pointSizeF() * kSelectedFontScale);
+		primaryFont.setPointSizeF(primaryFont.pointSizeF() * kSelectedFontScale);
 	}
-	painter->setFont(nameFont);
+	painter->setFont(primaryFont);
 	painter->setPen(primaryColor);
-	const QString name = index.data(SessionsListModel::SessionNameRole).toString();
-	painter->drawText(QRect(textX, rect.top(), textW, halfH),
-	                  Qt::AlignVCenter | Qt::AlignLeft, name);
 
-	// Line 2 - date and message count
+	QString primaryText;
+	QString secondaryText;
+
+	if (isLive)
+	{
+		primaryText = index.data(SessionsListModel::SessionNameRole).toString();
+		const QString date = index.data(SessionsListModel::CreatedAtFormattedRole).toString();
+		const int msgCnt = index.data(SessionsListModel::MessageCountRole).toInt();
+		secondaryText = date.isEmpty()
+			? QString("%1 msgs").arg(msgCnt)
+			: QString("%1 | %2 msgs").arg(date).arg(msgCnt);
+	}
+	else
+	{
+		primaryText = index.data(SessionsListModel::CreatedAtFormattedRole).toString();
+		const int msgCnt = index.data(SessionsListModel::MessageCountRole).toInt();
+		secondaryText = QString("%1 msgs").arg(msgCnt);
+	}
+
+	painter->drawText(QRect(textX, rect.top(), textW, halfH),
+		Qt::AlignVCenter | Qt::AlignLeft, primaryText);
+
 	QFont subFont = option.font;
 	subFont.setPointSizeF(subFont.pointSizeF() * 0.85);
 	if (selected)
@@ -98,15 +144,8 @@ void SessionListDelegate::paint(QPainter* painter,
 	}
 	painter->setFont(subFont);
 	painter->setPen(secondaryColor);
-
-	const QString date   = index.data(SessionsListModel::CreatedAtFormattedRole).toString();
-	const int     msgCnt = index.data(SessionsListModel::MessageCountRole).toInt();
-	const QString subText = date.isEmpty()
-		? QString("%1 msgs").arg(msgCnt)
-		: QString("%1 | %2 msgs").arg(date).arg(msgCnt);
-
 	painter->drawText(QRect(textX, rect.top() + halfH, textW, halfH),
-	                  Qt::AlignVCenter | Qt::AlignLeft, subText);
+		Qt::AlignVCenter | Qt::AlignLeft, secondaryText);
 
 	painter->restore();
 }

@@ -68,7 +68,7 @@ void MainWindow::setApp(BoardStationApp *pApp)
 		connect(rs, &RecordedSession::dataLoadCompleted, this, [this, sessions, rs]()
 		{
 			// Ищем текущий индекс этой сессии (после сортировки он мог сдвинуться)
-			for (int j = 0; j < sessions->rowCount(); ++j)
+			for (int j = 0; j < sessions->sessionCount(); ++j)
 			{
 				if (sessions->session(j) == rs)
 				{
@@ -84,41 +84,46 @@ void MainWindow::setApp(BoardStationApp *pApp)
 		});
 	};
 
-	// Подключаем сигнал удаления сессии для удаления соответствующего виджета
-	connect(sessions, &QAbstractItemModel::rowsAboutToBeRemoved,
-		this, [this](const QModelIndex& parent, int first, int last)
+	// Подключаем добавление/удаление сессий для стека workspace (плоский индекс)
+	connect(sessions, &SessionsListModel::sessionInsertedAt,
+		this, [this, connectDataLoad](int flatIndex, Session* session)
 		{
-			// Удаляем виджеты сессий, которые будут удалены из модели
-			for (int i = first; i <= last; ++i)
+			auto sessionFrame = new SessionWorkspace(session, this);
+			sessionsStackView()->insertWidget(flatIndex, sessionFrame);
+			connectDataLoad(session);
+			sessionsListView()->revealFlatSessionIndex(flatIndex);
+		});
+
+	connect(sessions, &SessionsListModel::sessionRemovedAt,
+		this, [this](int flatIndex)
+		{
+			QWidget* widget = sessionsStackView()->widget(flatIndex);
+			if (widget)
 			{
-				QWidget* widget = sessionsStackView()->widget(i);
-				if (widget)
-				{
-					sessionsStackView()->removeWidget(widget);
-					widget->deleteLater();
-				}
+				sessionsStackView()->removeWidget(widget);
+				widget->deleteLater();
 			}
 		});
-		
-	// Подключаем сигнал добавления сессии для создания соответствующего виджета
-	connect(sessions, &QAbstractItemModel::rowsInserted,
-		this, [this, sessions, connectDataLoad](const QModelIndex& parent, int first, int last)
+
+	connect(sessions, &SessionsListModel::sessionAboutToBeRemoved,
+		this, [this](int flatIndex)
 		{
-			// Создаем виджеты для новых сессий
-			for (int i = first; i <= last; ++i)
+			if (!app() || !app()->sessionsModel())
 			{
-				auto session = sessions->getSession(i);
-				if (session)
-				{
-					auto sessionFrame = new SessionWorkspace(session, this);
-					sessionsStackView()->insertWidget(i, sessionFrame);
-					connectDataLoad(session);
-					qDebug() << "MainWindow: Created SessionWorkspace for new session at index" << i;
-				}
+				return;
 			}
+
+			if (app()->sessionsModel()->sessionCount() <= 1)
+			{
+				sessionsListView()->clearSessionSelection();
+				return;
+			}
+
+			const int newFlatIndex = flatIndex > 0 ? flatIndex - 1 : 0;
+			sessionsListView()->selectFlatSessionIndex(newFlatIndex);
 		});
 		
-	// Подключаем сигнал modelReset для пересоздания всех виджетов (при сортировке и т.д.)
+	// Полное пересоздание стека только при refreshSessions (modelReset)
 	connect(sessions, &QAbstractItemModel::modelReset,
 		this, [this, sessions, connectDataLoad]()
 		{
@@ -131,7 +136,7 @@ void MainWindow::setApp(BoardStationApp *pApp)
 			}
 				
 			// Создаем виджеты заново для всех сессий
-			for (auto i = 0; i < sessions->rowCount(); i++)
+			for (auto i = 0; i < sessions->sessionCount(); i++)
 			{
 				auto session = sessions->session(i);
 				auto sessionFrame = new SessionWorkspace(session, this);
@@ -142,7 +147,7 @@ void MainWindow::setApp(BoardStationApp *pApp)
 		});
 		
 	// Создаем начальные виджеты для всех сессий
-	for (auto i = 0; i < sessions->rowCount(); i++)
+	for (auto i = 0; i < sessions->sessionCount(); i++)
 	{
 		auto session = sessions->session(i);
 		auto sessionFrame = new SessionWorkspace(session, this);
@@ -159,23 +164,22 @@ void MainWindow::setApp(BoardStationApp *pApp)
 			app()->sessionsModel()->selectSession(index);
 
 			auto sessionWorkspace = sessionsStackView()->getSessionFrame(index);
-			if (sessionWorkspace)
+			if (!sessionWorkspace)
 			{
-				sessionWorkspace->playerView()->refreshFromPlayer();
+				return;
+			}
 
-				auto parametersTreeView = sessionWorkspace->parametersTree();
+			sessionWorkspace->playerView()->refreshFromPlayer();
 
-				auto session = app()->sessionsModel()->session(index);
-				auto rowCount = session->parametersModel()->rowCount();
-				if (parametersTreeView)
-				{
-					parametersTreeView->applyDefaultExpansion();
-				}
+			if (sessionWorkspace->parametersTree())
+			{
+				QTimer::singleShot(0, sessionWorkspace->parametersTree(),
+					&TelemetryDataView::applyDefaultExpansion);
 			}
 		});
 		
 	//sessionsListView()->selectFirstItem();
-	auto rows = pApp->sessionsModel()->rowCount();
+	auto rows = pApp->sessionsModel()->sessionCount();
 
 	// Устанавливаем модель для uplink параметров
 	if (pApp->getUplinkParametersModel())
@@ -224,33 +228,26 @@ void MainWindow::deleteRecord()
 	QModelIndex index = sessionsListView()->currentIndex();
 	if (!index.isValid()) return;
 
-	// Проверяем, что это не живая сессия, перед вопросом
-	auto session = app()->sessionsModel()->getSession(index.row());
+	const int flatIndex = index.data(SessionsListModel::FlatSessionIndexRole).toInt();
+	if (flatIndex < 0)
+	{
+		return;
+	}
+
+	auto session = app()->sessionsModel()->getSession(flatIndex);
 	if (session == app()->liveSession())
 	{
 		QMessageBox::warning(this, tr("Warning"), tr("Cannot delete live session"));
 		return;
 	}
 
-	auto reply = QMessageBox::question(this, tr("Delete Session"), 
-		tr("Are you sure you want to delete this session?"), 
+	auto reply = QMessageBox::question(this, tr("Delete Session"),
+		tr("Are you sure you want to delete this session?"),
 		QMessageBox::Yes | QMessageBox::No);
 
 	if (reply == QMessageBox::Yes)
 	{
-		int deletedRow = index.row();
-		app()->removeRecordFromDatabase(deletedRow);
-
-		// После удаления явно выбираем соседний элемент, т.к. Qt не гарантирует
-		// автоматическую генерацию selectionChanged с непустым selected
-		int rowCount = app()->sessionsModel()->rowCount();
-		if (rowCount > 0)
-		{
-			int newRow = qMin(deletedRow, rowCount - 1);
-			QModelIndex newIndex = app()->sessionsModel()->index(newRow, 0);
-			sessionsListView()->selectionModel()->select(newIndex, QItemSelectionModel::ClearAndSelect);
-			sessionsListView()->selectionModel()->setCurrentIndex(newIndex, QItemSelectionModel::NoUpdate);
-		}
+		app()->removeRecordFromDatabase(flatIndex);
 	}
 }
 

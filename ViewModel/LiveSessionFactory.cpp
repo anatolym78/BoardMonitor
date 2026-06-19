@@ -99,3 +99,8 @@ void LiveSessionFactory::resetCounters()
         qWarning() << "LiveSessionFactory: Live session not created yet";
     }
 }
+
+void LiveSessionFactory::releaseLiveSession()
+{
+    m_liveSession = nullptr;
+}
