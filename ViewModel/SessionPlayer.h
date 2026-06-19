@@ -24,6 +24,7 @@ public:
 
 	// Метод для инициализации плеера с уже загруженными данными
 	void initializeWithLoadedData();
+	void refreshSnapshotAtCurrentPosition();
 
 private:
 	void updatePlaybackPosition() override;

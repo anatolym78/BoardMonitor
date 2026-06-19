@@ -123,7 +123,7 @@ void DriverAdapter::createTreeParameters(const QString &data)
 
 void DriverAdapter::sendParameterTreeSnapshot(ParameterTreeStorage* snapshot)
 {
-    // Используем упрощенный формат для отправки на борт (без control/min/max)
+    // Группированный формат: объект с ключами групп (motion, flags, ...)
     auto message = m_treeJsonParser->toBoardJson(snapshot);
 
     m_driver->write(message);

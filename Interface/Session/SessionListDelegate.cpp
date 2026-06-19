@@ -8,6 +8,7 @@
 static constexpr int kRowHeight = 56;
 static constexpr int kIconSize  = 32;
 static constexpr int kMarginH   = 6;
+static constexpr qreal kSelectedFontScale = 1.12;
 
 SessionListDelegate::SessionListDelegate(QObject* parent)
 	: QStyledItemDelegate(parent)
@@ -71,15 +72,17 @@ void SessionListDelegate::paint(QPainter* painter,
 
 	const bool selected = option.state & QStyle::State_Selected;
 
-	QColor primaryColor = selected
-		? option.palette.highlightedText().color()
-		: option.palette.windowText().color();
+	const QColor primaryColor = option.palette.color(QPalette::WindowText);
 	QColor secondaryColor = primaryColor;
 	secondaryColor.setAlpha(selected ? 180 : 130);
 
 	// Line 1 - session name (bold)
 	QFont nameFont = option.font;
 	nameFont.setBold(true);
+	if (selected)
+	{
+		nameFont.setPointSizeF(nameFont.pointSizeF() * kSelectedFontScale);
+	}
 	painter->setFont(nameFont);
 	painter->setPen(primaryColor);
 	const QString name = index.data(SessionsListModel::SessionNameRole).toString();
@@ -89,6 +92,10 @@ void SessionListDelegate::paint(QPainter* painter,
 	// Line 2 - date and message count
 	QFont subFont = option.font;
 	subFont.setPointSizeF(subFont.pointSizeF() * 0.85);
+	if (selected)
+	{
+		subFont.setPointSizeF(subFont.pointSizeF() * kSelectedFontScale);
+	}
 	painter->setFont(subFont);
 	painter->setPen(secondaryColor);
 

@@ -129,10 +129,15 @@ void RecordedSession::loadDataFromDatabaseAsync(const QString& dbPath)
 {
 	if (m_dataLoaded)
 	{
-		// Данные уже в памяти — инициализируем плеер и готово
 		auto* sp = static_cast<SessionPlayer*>(m_player);
-		if (sp) sp->initializeWithLoadedData();
-		player()->initialPlay();
+		if (sp)
+		{
+			sp->refreshSnapshotAtCurrentPosition();
+		}
+
+		Session::open();
+
+		QTimer::singleShot(0, this, [this]() { emit dataLoadCompleted(); });
 		return;
 	}
 

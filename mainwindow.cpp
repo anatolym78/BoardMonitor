@@ -75,7 +75,7 @@ void MainWindow::setApp(BoardStationApp *pApp)
 					auto* ws = sessionsStackView()->getSessionFrame(j);
 					if (ws)
 					{
-						ws->parametersTree()->expandAll();
+						ws->parametersTree()->applyDefaultExpansion();
 						ws->playerView()->refreshFromPlayer();
 					}
 					break;
@@ -161,13 +161,15 @@ void MainWindow::setApp(BoardStationApp *pApp)
 			auto sessionWorkspace = sessionsStackView()->getSessionFrame(index);
 			if (sessionWorkspace)
 			{
+				sessionWorkspace->playerView()->refreshFromPlayer();
+
 				auto parametersTreeView = sessionWorkspace->parametersTree();
 
 				auto session = app()->sessionsModel()->session(index);
 				auto rowCount = session->parametersModel()->rowCount();
 				if (parametersTreeView)
 				{
-					parametersTreeView->expandToDepth(0);
+					parametersTreeView->applyDefaultExpansion();
 				}
 			}
 		});

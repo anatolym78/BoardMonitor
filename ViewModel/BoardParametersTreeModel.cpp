@@ -40,6 +40,8 @@ void BoardParametersTreeModel::setSnapshot(ParameterTreeStorage* storage, bool i
 
 void BoardParametersTreeModel::onParameterAdded(ParameterTreeItem* newItem)
 {
+	Q_UNUSED(newItem);
+	emit structureAboutToReset();
 	this->beginResetModel();
 	this->endResetModel();
 }

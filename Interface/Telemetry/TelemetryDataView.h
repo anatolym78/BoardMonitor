@@ -2,6 +2,9 @@
 #define PARAMETERSTREEVIEW_H
 
 #include <QTreeView>
+#include <QSet>
+#include <QString>
+
 #include "./../../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
 
 /**
@@ -16,12 +19,21 @@ class TelemetryDataView : public QTreeView
 public:
     explicit TelemetryDataView(QWidget *parent = nullptr);
     void setModel(QAbstractItemModel* model) override;
+    void applyDefaultExpansion();
 
     void mouseMoveEvent(QMouseEvent* event) override;
     void leaveEvent(QEvent* event) override;
 
 signals:
     void itemHovered(ParameterTreeHistoryItem* treeItem);
+
+private:
+    void saveExpandedPaths();
+    void restoreExpandedPaths();
+    void collectExpandedPaths(const QModelIndex& parent, int depth);
+    void restoreExpandedPathsRecursive(const QModelIndex& parent, int depth);
+
+    QSet<QString> m_expandedPaths;
 };
 
-#endif // PARAMETERSTREEVIEW_H
+#endif // PARAMETERS

@@ -59,24 +59,34 @@ QString ParameterTreeJsonParser::toBoardJson(ParameterTreeStorage* root)
         m_lastError = "Root storage is null";
         return QString();
     }
-    
-    QJsonArray parametersArray;
-    
-    // Обходим все дочерние элементы корня
+
+    QJsonObject rootObject;
+
     for (int i = 0; i < root->childCount(); ++i)
     {
-        auto child = root->child(i);
-        if (child)
+        ParameterTreeItem* child = root->child(i);
+        if (!child)
         {
-            serializeTreeItemSimple(child, parametersArray);
+            continue;
+        }
+
+        QJsonArray groupArray;
+        if (child->type() == ParameterTreeItem::ItemType::Group)
+        {
+            serializeBoardGroupChildren(child, groupArray);
+            rootObject[child->label()] = groupArray;
+        }
+        else
+        {
+            appendBoardParameterItem(child, groupArray);
+            if (!groupArray.isEmpty())
+            {
+                rootObject[child->label()] = groupArray;
+            }
         }
     }
-    
-    // Создаем объект с полем "Parameters" для совместимости
-    // QJsonObject rootObject;
-    // rootObject["Parameters"] = parametersArray;
-    
-    QJsonDocument doc(parametersArray); // Изменен на прямое использование QJsonArray
+
+    QJsonDocument doc(rootObject);
     return QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
 }
 
@@ -439,25 +449,39 @@ QJsonValue ParameterTreeJsonParser::convertVariantToJson(const QVariant& variant
     }
 }
 
-void ParameterTreeJsonParser::serializeTreeItemSimple(ParameterTreeItem* item, QJsonArray& jsonArray)
+void ParameterTreeJsonParser::serializeBoardGroupChildren(ParameterTreeItem* group, QJsonArray& groupArray)
 {
-    if (!item) return;
-    
-    // Упрощенная сериализация: только label и value, без control/min/max
+    if (!group)
+    {
+        return;
+    }
+
+    for (int i = 0; i < group->childCount(); ++i)
+    {
+        appendBoardParameterItem(group->child(i), groupArray);
+    }
+}
+
+void ParameterTreeJsonParser::appendBoardParameterItem(ParameterTreeItem* item, QJsonArray& groupArray)
+{
+    if (!item)
+    {
+        return;
+    }
+
     if (item->type() == ParameterTreeItem::ItemType::History)
     {
         auto historyItem = static_cast<ParameterTreeHistoryItem*>(item);
-        
+
         QJsonObject paramObject;
-        paramObject["label"] = historyItem->fullName();
+        paramObject["label"] = historyItem->label();
         paramObject["value"] = convertVariantToJson(historyItem->lastValue());
-        
-        jsonArray.append(paramObject);
+        groupArray.append(paramObject);
     }
     else if (item->type() == ParameterTreeItem::ItemType::Array)
     {
         auto arrayItem = static_cast<ParameterTreeArrayItem*>(item);
-        
+
         QJsonArray valueArray;
         for (int i = 0; i < arrayItem->childCount(); ++i)
         {
@@ -468,19 +492,17 @@ void ParameterTreeJsonParser::serializeTreeItemSimple(ParameterTreeItem* item, Q
                 valueArray.append(convertVariantToJson(historyChild->lastValue()));
             }
         }
-        
+
         QJsonObject paramObject;
-        paramObject["label"] = arrayItem->fullName();
+        paramObject["label"] = arrayItem->label();
         paramObject["value"] = valueArray;
-        
-        jsonArray.append(paramObject);
+        groupArray.append(paramObject);
     }
     else if (item->type() == ParameterTreeItem::ItemType::Group)
     {
-        // Для группы рекурсивно сериализуем все дочерние элементы
         for (int i = 0; i < item->childCount(); ++i)
         {
-            serializeTreeItemSimple(item->child(i), jsonArray);
+            appendBoardParameterItem(item->child(i), groupArray);
         }
     }
 }

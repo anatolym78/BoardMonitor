@@ -49,6 +49,9 @@ public:
 	void onValueAdded(ParameterTreeHistoryItem* updatedItem);
 	void onValueChanged(ParameterTreeHistoryItem* history);
 
+signals:
+	void structureAboutToReset();
+
 private:
 	void makeRandomColors();
 

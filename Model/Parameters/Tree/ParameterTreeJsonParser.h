@@ -20,7 +20,7 @@ public:
 
     ParameterTreeStorage* parseJson(const QString &jsonString);
     QString toJson(ParameterTreeStorage* root);
-    QString toBoardJson(ParameterTreeStorage* root);  // Упрощенный формат для отправки на борт
+    QString toBoardJson(ParameterTreeStorage* root);  // Группированный формат для отправки на борт
     void updateJson(const QString &jsonString, ParameterTreeStorage *root);
     void updateJsonFromArray(const QJsonArray &jsonArray, ParameterTreeStorage *root);
 
@@ -34,7 +34,8 @@ private:
     QVariant convertJsonValue(const QJsonValue &jsonValue);
     
     void serializeTreeItem(ParameterTreeItem* item, QJsonArray& jsonArray);
-    void serializeTreeItemSimple(ParameterTreeItem* item, QJsonArray& jsonArray);  // Упрощенная сериализация
+    void serializeBoardGroupChildren(ParameterTreeItem* group, QJsonArray& groupArray);
+    void appendBoardParameterItem(ParameterTreeItem* item, QJsonArray& groupArray);
     QJsonValue convertVariantToJson(const QVariant& variant);
 
     QString m_lastError;

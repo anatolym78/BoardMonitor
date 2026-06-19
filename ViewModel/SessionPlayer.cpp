@@ -103,6 +103,31 @@ void SessionPlayer::initializeWithLoadedData()
 			 << m_sessionStartTime.toString() << "to" << m_sessionEndTime.toString();
 }
 
+void SessionPlayer::refreshSnapshotAtCurrentPosition()
+{
+	if (!m_storage)
+	{
+		return;
+	}
+
+	QDateTime pos = currentPosition();
+	if (m_sessionStartTime.isNull() || pos.isNull())
+	{
+		return;
+	}
+
+	QDateTime endTime = pos;
+	if (endTime <= m_sessionStartTime)
+	{
+		endTime = m_sessionStartTime.addMSecs(1);
+	}
+
+	playParametersInTimeRange(m_sessionStartTime, endTime);
+
+	emit currentPositionChanged();
+	emit elapsedTimeChanged();
+}
+
 void SessionPlayer::updatePlaybackPosition()
 {
 	// Сохраняем предыдущую позицию для определения временного интервала
