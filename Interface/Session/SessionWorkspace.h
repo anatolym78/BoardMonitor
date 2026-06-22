@@ -16,7 +16,7 @@ class QToolButton;
  * 
  * Агрегирует в себе все инструменты для работы с конкретной сессией:
  * - Дерево телеметрии (TelemetryDataView)
- * - Панель графиков (ChartsDashboardView)
+ * - Панель графиков и траектории (QTabWidget)
  * - Управление воспроизведением (PlaybackView)
  */
 class SessionWorkspace : public QFrame

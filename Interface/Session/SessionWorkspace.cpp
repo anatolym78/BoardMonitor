@@ -5,6 +5,7 @@
 
 #include <QSplitter>
 #include <QVBoxLayout>
+#include <QTabWidget>
 #include <QItemSelectionModel>
 #include <QToolButton>
 #include <QHBoxLayout>
@@ -49,9 +50,14 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	m_chartsPanel = new ChartsDashboardView(this);
 	m_playerView = new PlaybackView(this);
 
+	auto* sessionTabs = new QTabWidget(this);
+	sessionTabs->addTab(m_chartsPanel, tr("Графики"));
+	sessionTabs->addTab(new QWidget(this), tr("Траектория"));
+	sessionTabs->setCurrentIndex(0);
+
 	QSplitter* splitter = new QSplitter(Qt::Horizontal, this);
 	splitter->addWidget(parametersContainer);
-	splitter->addWidget(m_chartsPanel);
+	splitter->addWidget(sessionTabs);
 	splitter->setStretchFactor(0, 1);
 	splitter->setStretchFactor(1, 8);
 	splitter->setChildrenCollapsible(false);

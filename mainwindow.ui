@@ -77,9 +77,6 @@
           </item>
           <item>
            <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
             <property name="sizeHint" stdset="0">
              <size>
               <width>40</width>
@@ -128,9 +125,6 @@
           </item>
           <item>
            <spacer name="sendButtonHorizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
             <property name="sizeHint" stdset="0">
              <size>
               <width>40</width>
@@ -147,10 +141,10 @@
            <bool>true</bool>
           </property>
           <property name="selectionMode">
-           <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+           <enum>QAbstractItemView::NoSelection</enum>
           </property>
           <property name="selectionBehavior">
-           <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
+           <enum>QAbstractItemView::SelectItems</enum>
           </property>
          </widget>
         </item>
@@ -165,7 +159,7 @@
     <bool>false</bool>
    </property>
    <property name="features">
-    <set>QDockWidget::DockWidgetFeature::DockWidgetClosable</set>
+    <set>QDockWidget::NoDockWidgetFeatures</set>
    </property>
    <property name="windowTitle">
     <string>Console</string>
@@ -202,11 +196,23 @@
      <x>0</x>
      <y>0</y>
      <width>1280</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>Вид</string>
+    </property>
+    <addaction name="action"/>
+   </widget>
+   <addaction name="menu"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="action">
+   <property name="text">
+    <string>Консоль</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

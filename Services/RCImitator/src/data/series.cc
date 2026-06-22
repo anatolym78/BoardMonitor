@@ -61,9 +61,9 @@ namespace radio::data
 
 	void Series::operator()(Acceleration& acceleration)
 	{
-		acceleration.x = 0;
-		acceleration.y = 0;
-		acceleration.z = 0;
+		acceleration.x = acceleration_x_func(_us_timestamp);
+		acceleration.y = acceleration_y_func(_us_timestamp);
+		acceleration.z = acceleration_z_func(_us_timestamp);
 	}
 
 	void Series::operator()(GroundSpeed& ground_speed)
@@ -75,20 +75,20 @@ namespace radio::data
 
 	void Series::operator()(Attitude& attitude)
 	{
-		attitude.roll = 0;
-		attitude.pitch = 0;
-		attitude.yaw = 0;
+		attitude.roll = static_cast<int16_t>(attitude_roll_func(_us_timestamp));
+		attitude.pitch = static_cast<int16_t>(attitude_pitch_func(_us_timestamp));
+		attitude.yaw = static_cast<int16_t>(attitude_yaw_func(_us_timestamp));
 	}
 	void Series::operator()(Altitude& altitude)
 	{
-		altitude.alt = 0;
+		altitude.alt = static_cast<int32_t>(altitude_func(_us_timestamp));
 	}	
 
 	void Series::operator()(GpsCoordinates& coordinates)
 	{
-		coordinates.lat = 0;
-		coordinates.lon = 0;
-	}	
+		coordinates.lat = kGpsCenterLat + static_cast<int32_t>(gps_lat_func(_us_timestamp));
+		coordinates.lon = kGpsCenterLon + static_cast<int32_t>(gps_lon_func(_us_timestamp));
+	}
 
 	// =========================== controls group ====================
 

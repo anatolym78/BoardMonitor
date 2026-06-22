@@ -5,12 +5,12 @@
 DebugViewModel::DebugViewModel(QObject *parent)
 	: QAbstractTableModel(parent)
 {
-	// Инициализируем иконки для всех типов сообщений одной иконкой (как для Info)
-	QIcon defaultIcon(":/Resources/info_16.png");
-	m_typeIcons[MessageType::UplinkParameters] = defaultIcon;
-	m_typeIcons[MessageType::DataReceived] = defaultIcon;
-	m_typeIcons[MessageType::Error] = defaultIcon;
-	m_typeIcons[MessageType::Info] = defaultIcon;
+	const QIcon infoIcon(":/Resources/icons8-info-16.png");
+	m_typeIcons[MessageType::UplinkParameters] = infoIcon;
+	m_typeIcons[MessageType::DataReceived] = infoIcon;
+	m_typeIcons[MessageType::Info] = infoIcon;
+	m_typeIcons[MessageType::Warning] = QIcon(":/Resources/icons8-warning-16.png");
+	m_typeIcons[MessageType::Error] = QIcon(":/Resources/icons8-error-16.png");
 }
 
 int DebugViewModel::rowCount(const QModelIndex &parent) const
@@ -83,6 +83,8 @@ QVariant DebugViewModel::data(const QModelIndex &index, int role) const
 				return tr("Received");
 			case MessageType::Error:
 				return tr("Error");
+			case MessageType::Warning:
+				return tr("Warning");
 			case MessageType::Info:
 				return tr("Info");
 			}
@@ -115,6 +117,8 @@ QVariant DebugViewModel::data(const QModelIndex &index, int role) const
 				return tr("Received");
 			case MessageType::Error:
 				return tr("Error");
+			case MessageType::Warning:
+				return tr("Warning");
 			case MessageType::Info:
 				return tr("Info");
 			}
@@ -143,6 +147,11 @@ void DebugViewModel::addErrorMessage(const QString &message)
 	addMessage(message, MessageType::Error);
 }
 
+void DebugViewModel::addWarningMessage(const QString &message)
+{
+	addMessage(message, MessageType::Warning);
+}
+
 void DebugViewModel::addInfoMessage(const QString &message)
 {
 	addMessage(message, MessageType::Info);
@@ -168,6 +177,9 @@ QString DebugViewModel::formatMessage(const DebugMessage &msg) const
 		break;
 	case MessageType::Error:
 		typeStr = tr("[Error]");
+		break;
+	case MessageType::Warning:
+		typeStr = tr("[Warning]");
 		break;
 	case MessageType::Info:
 		typeStr = tr("[Info]");

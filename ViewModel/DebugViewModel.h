@@ -25,6 +25,7 @@ public:
 		UplinkParameters,
 		DataReceived,
 		Error,
+		Warning,
 		Info
 	};
 
@@ -44,6 +45,7 @@ public:
 	void addUplinkParametersMessage(const QString &data);
 	void addDataReceivedMessage(const QString &data);
 	void addErrorMessage(const QString &message);
+	void addWarningMessage(const QString &message);
 	void addInfoMessage(const QString &message);
 	
 	// Методы управления

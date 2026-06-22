@@ -43,6 +43,11 @@ MainWindow::MainWindow(QWidget *parent)
 	connect(ui->buttonDeleteRecord, &QToolButton::clicked, this, &MainWindow::deleteRecord);
 	connect(ui->buttonSendToBoard, &QToolButton::clicked, this, &MainWindow::sendMessageToBoard);
 	connect(ui->checkboxSendDataImmediately, &QCheckBox::stateChanged, this, &MainWindow::onCheckBoxSetDataImmediately);
+
+	ui->action->setCheckable(true);
+	ui->action->setChecked(ui->consoleDockWidget->isVisible());
+	connect(ui->action, &QAction::toggled, ui->consoleDockWidget, &QWidget::setVisible);
+	connect(ui->consoleDockWidget, &QDockWidget::visibilityChanged, ui->action, &QAction::setChecked);
 }
 
 MainWindow::~MainWindow()

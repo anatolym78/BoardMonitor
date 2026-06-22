@@ -59,6 +59,15 @@ namespace radio
 			SinusFunction acceleration_x_func = SinusFunction(5, 10, 0);
 			SinusFunction acceleration_y_func = SinusFunction(5, 10, 1);
 			SinusFunction acceleration_z_func = SinusFunction(5, 10, 2);
+			SinusFunction attitude_roll_func = SinusFunction(100, 30, 0);
+			SinusFunction attitude_pitch_func = SinusFunction(150, 45, 1.57079632679f);
+			SinusFunction attitude_yaw_func = SinusFunction(200, 60, 3.14159265359f);
+			SinusFunction altitude_func = SinusFunction(5000, 40, 0, 100000);
+			SinusFunction gps_lat_func = SinusFunction(269583, 120, 0);
+			SinusFunction gps_lon_func = SinusFunction(479928, 120, 1.57079632679f);
+
+			static constexpr int32_t kGpsCenterLat = 557558000; // 55.7558°
+			static constexpr int32_t kGpsCenterLon = 376173000; // 37.6173°
 
 		public:
 			Series() = default;

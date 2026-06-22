@@ -80,7 +80,13 @@ void PlaybackView::setPlayer(DataPlayer* player)
 
 	if (!m_player->isPlayable())
 	{
+		m_playPauseButton->setVisible(false);
 		m_stopButton->setVisible(false);
+	}
+	else
+	{
+		m_playPauseButton->setVisible(true);
+		m_stopButton->setVisible(true);
 	}
 
 	// Начальная инициализация состояния

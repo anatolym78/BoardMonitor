@@ -95,11 +95,17 @@ void BoardStationApp::connectSignals()
 		connect(m_driverAdapter, &DriverAdapter::driverStateChanged,
 			this, [this](radio::IDriver::State state)
 			{
-				QString stateStr = (state == radio::IDriver::State::kConnected)
-					? tr("Соединение с дроном установлено")
-					: tr("Соединение с дроном разорвано");
-				auto driverMessageInfo = tr("Состояние драйвера изменилось: ");
-				m_debugViewModel->addInfoMessage(driverMessageInfo + QString("%1").arg(stateStr));
+				const QString driverMessageInfo = tr("Состояние драйвера изменилось: ");
+				if (state == radio::IDriver::State::kConnected)
+				{
+					m_debugViewModel->addInfoMessage(
+						driverMessageInfo + tr("Соединение с дроном установлено"));
+				}
+				else
+				{
+					m_debugViewModel->addWarningMessage(
+						driverMessageInfo + tr("Соединение с дроном разорвано"));
+				}
 			});
 	}
 
