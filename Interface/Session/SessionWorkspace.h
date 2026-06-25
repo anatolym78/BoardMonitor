@@ -35,12 +35,16 @@ private slots:
     void onHideChartButtonClicked();
 
 private:
+    void setChartsInteractionPaused(bool paused);
+
     QPointer<Session> m_session; 
     TelemetryDataView* m_parametersTree;
     ChartsDashboardView* m_chartsPanel;
     PlaybackView* m_playerView;
     QToolButton* m_showChartButton;
     QToolButton* m_hideChartButton;
+    QTimer* m_splitterLayoutTimer = nullptr;
+    bool m_chartsInteractionPaused = false;
 };
 
 #endif // SESSIONFRAME_H

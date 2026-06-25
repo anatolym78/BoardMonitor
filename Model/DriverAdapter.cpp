@@ -1,6 +1,7 @@
 #include "DriverAdapter.h"
 #include "./Parameters/Tree/ParameterTreeJsonParser.h"
 #include "./Parameters/Tree/ParameterTreeStorage.h"
+#include "Model/Telemetry/TelemetryIngestService.h"
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
@@ -157,6 +158,12 @@ void DriverAdapter::onDriverDataAvailable(QString data)
         return;
     }
 
+    if (m_ingestService)
+    {
+        m_ingestService->enqueue(data);
+        return;
+    }
+
     createTreeParameters(data);
 }
 
@@ -200,6 +207,11 @@ void DriverAdapter::sendParameterTreeSnapshot(ParameterTreeStorage* snapshot)
     auto message = m_treeJsonParser->toBoardJson(snapshot);
 
     m_driver->write(message);
+}
+
+void DriverAdapter::setIngestService(TelemetryIngestService* ingestService)
+{
+    m_ingestService = ingestService;
 }
 
 void DriverAdapter::connectToDriver()

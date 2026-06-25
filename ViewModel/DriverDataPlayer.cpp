@@ -1,90 +1,127 @@
 #include "DriverDataPlayer.h"
 #include <QDebug>
-#include <QDateTime>
 
 #include "./../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
 
 DriverDataPlayer::DriverDataPlayer(QObject *parent)
 	: DataPlayer(parent)
-	, m_isInitialized(false)
 {
 	m_isPlayable = false;
-
 	m_currentSessionName = tr("Live Data");
 	emit currentSessionNameChanged();
+
+	m_refreshTimer = new QTimer(this);
+	m_refreshTimer->setSingleShot(true);
+	m_refreshTimer->setInterval(REFRESH_INTERVAL_MS);
+	connect(m_refreshTimer, &QTimer::timeout, this, &DriverDataPlayer::flushRefresh);
 }
 
 DriverDataPlayer::~DriverDataPlayer()
 {
-	//stop();
 }
 
 void DriverDataPlayer::setStorage(ParameterTreeStorage* storage)
 {
-	if (m_storage) return; // !!!
+	if (m_storage)
+	{
+		return;
+	}
 
 	DataPlayer::setStorage(storage);
 
 	connect(m_storage, &ParameterTreeStorage::valueAdded,
 		this, &DriverDataPlayer::onStorageValueAdded);
-	
-	//resetState();
 }
 
 void DriverDataPlayer::onStorageValueAdded(ParameterTreeHistoryItem* historyItem)
 {
+	if (!historyItem)
+	{
+		return;
+	}
+
+	const QDateTime timestamp = historyItem->lastTimestamp();
+	if (!timestamp.isValid())
+	{
+		return;
+	}
+
 	if (!m_isInitialized)
 	{
-		m_sessionStartTime = historyItem->lastTimestamp();
+		m_sessionStartTime = timestamp;
 		{
 			QMutexLocker locker(&m_positionMutex);
-			m_currentPosition = m_sessionStartTime;
+			m_currentPosition = timestamp;
 		}
-		m_sessionEndTime = m_sessionStartTime.addSecs(TIME_RANGE);
-
+		m_sessionEndTime = timestamp.addSecs(static_cast<int>(TIME_RANGE));
 		m_isInitialized = true;
-
 		emitTimeRangeSignals();
-
 		play();
 	}
+
+	extendTimeRangeTo(timestamp);
+
+	{
+		QMutexLocker locker(&m_positionMutex);
+		m_currentPosition = timestamp;
+	}
+	emit currentPositionChanged();
+	emit elapsedTimeChanged();
+
+	if (m_isPlaying)
+	{
+		scheduleRefresh();
+	}
 }
+
 void DriverDataPlayer::play()
 {
-	// В режиме реального времени просто устанавливаем флаг воспроизведения
-	// Позиция обновляется при получении новых параметров
-	if (!m_isPlaying)
+	if (m_isPlaying)
 	{
-		m_isPlaying = true;
-		m_shouldStop = 0;
-		startPlayback();
-		emit isPlayingChanged();
+		return;
+	}
+
+	m_isPlaying = true;
+	m_shouldStop = 0;
+	emit isPlayingChanged();
+
+	if (m_isInitialized)
+	{
+		scheduleRefresh();
 	}
 }
 
 void DriverDataPlayer::stop()
 {
+	if (m_refreshTimer)
+	{
+		m_refreshTimer->stop();
+	}
+
+	m_lastConsumedTimestamp = QDateTime();
 	DataPlayer::stop();
-	
-	// Сбрасываем состояние инициализации
 	m_isInitialized = false;
 }
 
 void DriverDataPlayer::pause()
 {
-	// В режиме реального времени просто останавливаем воспроизведение
-	if (m_isPlaying)
+	if (!m_isPlaying)
 	{
-		m_isPlaying = false;
-		m_shouldStop = 1;
-		stopPlayback();
-		emit isPlayingChanged();
+		return;
 	}
+
+	if (m_refreshTimer)
+	{
+		m_refreshTimer->stop();
+	}
+
+	m_isPlaying = false;
+	m_shouldStop = 1;
+	emit isPlayingChanged();
 }
 
 void DriverDataPlayer::setPosition(QDateTime position)
 {
-	// В режиме реального времени ограничиваем позицию текущим временем
 	if (position < m_sessionStartTime)
 	{
 		position = m_sessionStartTime;
@@ -93,7 +130,7 @@ void DriverDataPlayer::setPosition(QDateTime position)
 	{
 		position = m_sessionEndTime;
 	}
-	
+
 	{
 		QMutexLocker locker(&m_positionMutex);
 		m_currentPosition = position;
@@ -104,109 +141,128 @@ void DriverDataPlayer::setPosition(QDateTime position)
 
 void DriverDataPlayer::resetState()
 {
-	// Останавливаем плеер
-	stop();
-	
-	// Сбрасываем состояние инициализации
+	if (m_refreshTimer)
+	{
+		m_refreshTimer->stop();
+	}
+
+	m_isPlaying = false;
+	m_shouldStop = 1;
 	m_isInitialized = false;
-	
-	// Сбрасываем временные диапазоны
+	m_lastConsumedTimestamp = QDateTime();
+
 	m_sessionStartTime = QDateTime();
 	m_sessionEndTime = QDateTime();
 	{
 		QMutexLocker locker(&m_positionMutex);
 		m_currentPosition = QDateTime();
 	}
-	
-	// Эмитируем сигналы об изменении состояния
+
+	emit isPlayingChanged();
 	emitTimeRangeSignals();
-	
+
 	qDebug() << "DriverDataPlayer: State reset - ready for new live session";
 }
 
 void DriverDataPlayer::moveToBegin()
 {
-
 }
 
 void DriverDataPlayer::reset()
 {
 	m_isInitialized = false;
+	m_lastConsumedTimestamp = QDateTime();
 }
 
-void DriverDataPlayer::updatePlaybackPosition()
+void DriverDataPlayer::startPlayback()
 {
-	// В режиме реального времени обновляем позицию на текущее время
-	QDateTime currentTime = QDateTime::currentDateTime();
-	
-	// Ограничиваем позицию в пределах сессии
-	if (currentTime < m_sessionStartTime)
+	// Live-режим: без фонового playbackLoop по wall-clock.
+}
+
+void DriverDataPlayer::setRefreshPaused(bool paused)
+{
+	if (m_refreshPaused == paused)
 	{
-		currentTime = m_sessionStartTime;
+		return;
 	}
-	else
+
+	m_refreshPaused = paused;
+
+	if (m_refreshPaused)
 	{
-		if (currentTime > m_sessionEndTime)
+		if (m_refreshTimer)
 		{
-			currentTime = m_sessionEndTime;
+			m_refreshTimer->stop();
 		}
 	}
+	else if (m_isPlaying)
+	{
+		scheduleRefresh();
+	}
+}
 
-	QDateTime currentPos;
+void DriverDataPlayer::scheduleRefresh()
+{
+	if (m_refreshPaused || !m_refreshTimer || m_refreshTimer->isActive())
+	{
+		return;
+	}
+
+	m_refreshTimer->start();
+}
+
+void DriverDataPlayer::flushRefresh()
+{
+	if (m_refreshPaused || !m_isPlaying || !m_storage)
+	{
+		return;
+	}
+
+	const QDateTime latest = m_storage->latestTimestamp();
+	if (!latest.isValid())
+	{
+		return;
+	}
+
+	if (m_lastConsumedTimestamp.isValid() && latest <= m_lastConsumedTimestamp)
+	{
+		return;
+	}
+
+	m_lastConsumedTimestamp = latest;
+
 	{
 		QMutexLocker locker(&m_positionMutex);
-		currentPos = m_currentPosition;
+		m_currentPosition = latest;
 	}
 
-	auto storageRange = m_storage->extractRange(currentPos, currentTime);
-
-	emit played(storageRange, false);
-	
-	{
-		QMutexLocker locker(&m_positionMutex);
-		m_currentPosition = currentTime;
-	}
-	
-	// Проверяем, нужно ли расширить диапазон за 10 секунд до конца
-	QDateTime thresholdTime = m_sessionEndTime.addSecs(-10);
-	if (currentTime >= thresholdTime)
-	{
-		extendTimeRange();
-	}
-	
-	// Проверяем и проигрываем параметры
-	//checkAndPlayParameters();
-	
+	emit played(nullptr, false);
 	emit currentPositionChanged();
 	emit elapsedTimeChanged();
 }
 
-void DriverDataPlayer::checkAndPlayParameters()
+void DriverDataPlayer::extendTimeRangeTo(const QDateTime& latestTimestamp)
 {
-	if (!m_storage || !m_isPlaying)
+	if (!latestTimestamp.isValid())
 	{
 		return;
 	}
-}
 
-void DriverDataPlayer::initializeTimeRange()
-{
-	if (!m_storage)
+	const QDateTime threshold = m_sessionEndTime.addSecs(-10);
+	if (latestTimestamp < threshold)
 	{
 		return;
 	}
-	
-}
 
-void DriverDataPlayer::extendTimeRange()
-{
-	// Расширяем конечное время на TIME_RANGE секунд
-	m_sessionEndTime = m_sessionEndTime.addSecs(TIME_RANGE);
-	
+	const QDateTime newEnd = latestTimestamp.addSecs(static_cast<int>(TIME_RANGE));
+	if (newEnd <= m_sessionEndTime)
+	{
+		return;
+	}
+
+	m_sessionEndTime = newEnd;
 	emit sessionEndTimeChanged();
 	emit sessionDurationChanged();
-	
-	qDebug() << "DriverDataPlayer: Extended time range to" << m_sessionEndTime.toString();
 }
 
 void DriverDataPlayer::emitTimeRangeSignals()

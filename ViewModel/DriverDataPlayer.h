@@ -3,6 +3,9 @@
 
 #include "DataPlayer.h"
 
+#include <QDateTime>
+#include <QTimer>
+
 class DriverDataPlayer : public DataPlayer
 {
 	Q_OBJECT
@@ -11,36 +14,40 @@ public:
 	explicit DriverDataPlayer(QObject *parent = nullptr);
 	~DriverDataPlayer();
 
-	// Методы управления
+	void setRefreshPaused(bool paused);
+
 	Q_INVOKABLE void play() override;
 	Q_INVOKABLE void stop() override;
 	Q_INVOKABLE void pause() override;
 	Q_INVOKABLE void setPosition(QDateTime position) override;
-	
-	// Методы для работы с хранилищем
+
 	void setStorage(ParameterTreeStorage* storage) override;
-		
-	// Метод для сброса состояния плеера
+
 	void resetState() override;
 	void initialPlay() override {}
 
 	Q_INVOKABLE void moveToBegin() override;
-    Q_INVOKABLE void reset() override;
+	Q_INVOKABLE void reset() override;
+
+protected:
+	void startPlayback() override;
 
 private:
-	void updatePlaybackPosition() override;
-	void extendTimeRange();
-	void initializeTimeRange();
-	void checkAndPlayParameters();
+	void scheduleRefresh();
+	void flushRefresh();
+	void extendTimeRangeTo(const QDateTime& latestTimestamp);
 	void emitTimeRangeSignals();
 
-private:
 	void onStorageValueAdded(ParameterTreeHistoryItem* historyItem);
 
 private:
-	bool m_isInitialized;
-	static const int TIME_RANGE_MINUTES = 1; // Расширение диапазона на 10 минут
-	double TIME_RANGE = 600.0;
+	bool m_isInitialized = false;
+	bool m_refreshPaused = false;
+	QTimer* m_refreshTimer = nullptr;
+	QDateTime m_lastConsumedTimestamp;
+
+	static constexpr int REFRESH_INTERVAL_MS = 50;
+	static constexpr double TIME_RANGE = 600.0;
 };
 
 #endif // DRIVERDATAPLAYER_H

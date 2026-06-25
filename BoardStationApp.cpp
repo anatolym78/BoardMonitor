@@ -5,6 +5,8 @@
 #include <QFile>
 #include <QTextStream>
 
+#include "./ViewModel/LiveSession.h"
+
 #include "./Model/Parameters/Tree/ParameterTreeStorage.h"
 #include "./Model/Parameters/Tree/ParameterTreeJsonParser.h"
 
@@ -28,8 +30,12 @@ BoardStationApp::BoardStationApp(int &argc, char **argv)
 {
 	m_sessionsListModel = new SessionsListModel(this);
 	m_sessionsListModel->setReader(m_boardMessagesReader);
-	
+
+	m_telemetryIngestService = new TelemetryIngestService(this);
+	m_telemetryIngestService->start();
+
 	m_driverAdapter = new DriverAdapter(this);
+	m_driverAdapter->setIngestService(m_telemetryIngestService);
 			 
 	setupUplinkParameters();
 
@@ -60,22 +66,21 @@ void BoardStationApp::setupUplinkParameters()
 
 void BoardStationApp::connectSignals()
 {
-	if (liveSession())
+	if (liveSession() && m_telemetryIngestService)
 	{
-		// Передаем пришедшие от драйвера данные в хранилище
-		connect(m_driverAdapter, &DriverAdapter::parameterTreeReceived,
-			liveSession()->storage(), &ParameterTreeStorage::appendSnapshot);
+		connect(m_telemetryIngestService, &TelemetryIngestService::snapshotReady,
+			liveSession()->storage(), &ParameterTreeStorage::appendSnapshot,
+			Qt::QueuedConnection);
 
-		// Увеличиваем счетчик сообщений при получении каждого сообщения от драйвера
-		connect(m_driverAdapter, &DriverAdapter::parameterTreeReceived,
+		connect(m_telemetryIngestService, &TelemetryIngestService::snapshotReady,
 			liveSession(), [this](ParameterTreeStorage*)
 			{
 				liveSession()->incrementMessageCount();
-			});
+			},
+			Qt::QueuedConnection);
 
-		// Логируем первое сообщение от драйвера
 		static bool isFirstMessage = true;
-		connect(m_driverAdapter, &DriverAdapter::parameterTreeReceived,
+		connect(m_telemetryIngestService, &TelemetryIngestService::snapshotReady,
 			this, [this](ParameterTreeStorage*)
 			{
 				if (isFirstMessage && m_debugViewModel)
@@ -83,7 +88,24 @@ void BoardStationApp::connectSignals()
 					m_debugViewModel->addInfoMessage(tr("First message received from driver"));
 					isFirstMessage = false;
 				}
+			},
+			Qt::QueuedConnection);
+
+		connect(m_telemetryIngestService, &TelemetryIngestService::parseError,
+			this, [this](const QString& message)
+			{
+				if (m_debugViewModel)
+				{
+					m_debugViewModel->addWarningMessage(message);
+				}
+				else
+				{
+					qWarning() << "TelemetryIngestService:" << message;
+				}
 			});
+
+		connect(liveSession(), &LiveSession::storageCleared,
+			m_telemetryIngestService, &TelemetryIngestService::resetSessionClock);
 	}
 
 	// Логируем изменения состояния драйвера
@@ -114,6 +136,11 @@ void BoardStationApp::connectSignals()
 
 void BoardStationApp::close()
 {
+	if (m_telemetryIngestService)
+	{
+		m_telemetryIngestService->stop();
+	}
+
 	for (auto i = 0; i < m_sessionsListModel->sessionCount(); i++)
 	{
 		auto session = m_sessionsListModel->getSession(i);

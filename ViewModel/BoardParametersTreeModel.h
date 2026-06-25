@@ -30,6 +30,7 @@ public:
 	~BoardParametersTreeModel() override;
 
 	void setSnapshot(ParameterTreeStorage* storage, bool isBackPlaying);
+	void attachExternalStorage(ParameterTreeStorage* storage);
 	ParameterTreeStorage* storage() const { return m_rootItem; }
 
 	QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
@@ -59,6 +60,7 @@ private:
 
 private:
 	ParameterTreeStorage* m_rootItem = nullptr;
+	bool m_ownsRoot = true;
 	QList<QColor> m_colors;
 	// Для Qt Widgets: хранение заголовков колонок
 	QVariant m_horizontalHeaders[3];

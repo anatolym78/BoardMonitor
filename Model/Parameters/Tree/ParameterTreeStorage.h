@@ -21,6 +21,8 @@ public:
 	ParameterTreeHistoryItem* findHistoryItemByFullName(const QString& fullName) const;
 
 	ParameterTreeStorage* extractRange(const QDateTime& startTime, const QDateTime& endTime) const;
+	ParameterTreeStorage* extractAfter(const QDateTime& after, const QDateTime& endTime) const;
+	QDateTime latestTimestamp() const;
 	void clear();
 
 public slots:
@@ -35,7 +37,7 @@ signals:
 private:
 	void appendNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode);
 	void setNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode);
-	void extractNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, const QDateTime& startTime, const QDateTime& endTime) const;
+	void extractNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, const QDateTime& startTime, const QDateTime& endTime, bool exclusiveLowerBound = false) const;
 	void collectParameters(ParameterTreeItem* item, const QDateTime& startTime, const QDateTime& endTime, QList<BoardParameterSingle*>& params) const;
 
 private:

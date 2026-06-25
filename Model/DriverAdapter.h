@@ -20,6 +20,8 @@
 
 class ParameterTreeJsonParser;
 
+class TelemetryIngestService;
+
 class DriverAdapter : public QObject
 {
     Q_OBJECT
@@ -34,6 +36,8 @@ public:
     
     // Метод для отправки параметра на борт
     void sendParameterTreeSnapshot(ParameterTreeStorage* snapshot);
+
+    void setIngestService(TelemetryIngestService* ingestService);
 
 signals:
     // Сигнал для древовидных параметров
@@ -58,6 +62,7 @@ private:
     boost::dll::shared_library m_pluginLibrary;
     std::shared_ptr<radio::IDriver> m_driver;
     ParameterTreeJsonParser* m_treeJsonParser;
+    TelemetryIngestService* m_ingestService = nullptr;
     bool m_isConnected;
 };
 

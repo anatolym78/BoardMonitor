@@ -124,6 +124,10 @@ set(
     MODEL_SOURCES
     Model/DriverAdapter.cpp
     Model/DriverAdapter.h
+    Model/Telemetry/TelemetryIngestService.cpp
+    Model/Telemetry/TelemetryIngestService.h
+    Model/Telemetry/TelemetryIngestWorker.cpp
+    Model/Telemetry/TelemetryIngestWorker.h
     Model/Parameters/Tree/ParameterTreeGroupItem.cpp
     Model/Parameters/Tree/ParameterTreeGroupItem.h
     Model/Parameters/Tree/ParameterTreeHistoryItem.cpp

@@ -19,7 +19,13 @@ ParameterTreeJsonParser::ParameterTreeJsonParser(QObject *parent)
 
 ParameterTreeStorage* ParameterTreeJsonParser::parseJson(const QString &jsonString)
 {
-    auto root = new ParameterTreeStorage(this);
+    return parseJson(jsonString, QDateTime::currentDateTime());
+}
+
+ParameterTreeStorage* ParameterTreeJsonParser::parseJson(const QString &jsonString, const QDateTime &snapshotTimestamp)
+{
+    m_snapshotTimestamp = snapshotTimestamp;
+    auto root = new ParameterTreeStorage(nullptr);
     updateJson(jsonString, root);
     return root;
 }

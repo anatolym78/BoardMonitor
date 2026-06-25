@@ -20,6 +20,7 @@ public:
     explicit ParameterTreeJsonParser(QObject *parent = nullptr);
 
     ParameterTreeStorage* parseJson(const QString &jsonString);
+    ParameterTreeStorage* parseJson(const QString &jsonString, const QDateTime &snapshotTimestamp);
     QString toJson(ParameterTreeStorage* root);
     QString toBoardJson(ParameterTreeStorage* root);  // Группированный формат для отправки на борт
     void updateJson(const QString &jsonString, ParameterTreeStorage *root);

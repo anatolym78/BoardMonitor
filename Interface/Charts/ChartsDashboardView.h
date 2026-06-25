@@ -26,6 +26,7 @@ class ChartsDashboardView : public QFrame
 public:
 	explicit ChartsDashboardView(QWidget *parent = nullptr);
 	void setModel(ChatViewGridModel* chartsModel);
+	void setLayoutInteractionPaused(bool paused);
 
 	void onParameterItemHovered(ParameterTreeHistoryItem* treeItem);
 
@@ -51,6 +52,7 @@ private:
 	QToolButton* m_toggleColumnButton;
 	int m_columnCount = 1;
 	QMap<QtCharts::QAbstractSeries*, QColor>  m_seriesColors;
+	bool m_layoutInteractionPaused = false;
 
 private:
 	void addSeriesToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* parameter);

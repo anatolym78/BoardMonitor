@@ -69,6 +69,21 @@ ChartsDashboardView::ChartsDashboardView(QWidget *parent)
 	m_scrollArea->viewport()->installEventFilter(this);
 }
 
+void ChartsDashboardView::setLayoutInteractionPaused(bool paused)
+{
+	if (m_layoutInteractionPaused == paused)
+	{
+		return;
+	}
+
+	m_layoutInteractionPaused = paused;
+
+	if (!paused)
+	{
+		updateCellSizes();
+	}
+}
+
 void ChartsDashboardView::setModel(ChatViewGridModel* chartsModel)
 {
 	m_chartsModel = chartsModel;
@@ -147,6 +162,7 @@ void ChartsDashboardView::onAddChart(int chartIndex, ParameterTreeItem* paramete
 	chartView->setModel(m_chartsModel);
 	chartView->setRenderHint(QPainter::Antialiasing, true);
 	auto chart = new QtCharts::QChart();
+	chart->setAnimationOptions(QtCharts::QChart::NoAnimation);
 	chart->setBackgroundBrush(QBrush());
 	chartView->setChart(chart);
 	m_gridLayout->addWidget(chartView, row, column);
@@ -349,7 +365,10 @@ bool ChartsDashboardView::eventFilter(QObject* watched, QEvent* event)
 {
 	if (watched == m_scrollArea->viewport() && event->type() == QEvent::Resize)
 	{
-		//updateCellSizes();
+		if (!m_layoutInteractionPaused)
+		{
+			updateCellSizes();
+		}
 	}
 	return QFrame::eventFilter(watched, event);
 }

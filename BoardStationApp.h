@@ -17,6 +17,8 @@
 
 #include "./Model/DriverAdapter.h"
 
+#include "./Model/Telemetry/TelemetryIngestService.h"
+
 #include "./Model/Parameters/AppConfigurationReader.h"
 
 #include "./Services/RCImitator/src/driver.hh"
@@ -72,6 +74,7 @@ private:
 	boost::dll::shared_library m_rcImitatorPluginLibrary;
 	std::shared_ptr<radio::IDriver> m_driverHolder;
 	DriverAdapter *m_driverAdapter;
+	TelemetryIngestService* m_telemetryIngestService = nullptr;
 	SessionsListModel *m_sessionsListModel;
 
 	UplinkParametersTreeModel *m_uplinkParametersModel;

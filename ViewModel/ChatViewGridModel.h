@@ -46,7 +46,12 @@ public:
 		QPointer<QtCharts::QDateTimeAxis> timeAxis = nullptr;
 		QPointer<QtCharts::QValueAxis> valueAxis = nullptr;
 		bool isAxesInitialized = false;
+		qint64 lastAxisEndMs = 0;
+		qint64 lastAxisUpdateMs = 0;
 	};
+
+	void setChartInteractionPaused(bool paused);
+	bool isChartInteractionPaused() const { return m_chartInteractionPaused; }
 
 	void toggleParameter(ParameterTreeItem* parameter);// QString chartName);
 	void showParameter(ParameterTreeItem* parameter);
@@ -137,6 +142,7 @@ private:
 	//QList<int> m_depths;
 	//QList<bool> m_selectedIndices;
 	int m_hoverIndex = -1;
+	bool m_chartInteractionPaused = false;
 
 	// Вспомогательные методы
 	bool parameterExistsInHistory(const QString &label) const;

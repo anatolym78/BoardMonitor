@@ -9,7 +9,9 @@
 #include <QItemSelectionModel>
 #include <QToolButton>
 #include <QHBoxLayout>
+#include <QTimer>
 #include "../../Model/Parameters/Tree/ParameterTreeStorage.h"
+#include "../../ViewModel/DriverDataPlayer.h"
 
 SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(parent)
 {
@@ -68,6 +70,23 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	mainLayout->addWidget(splitter, 1);
 	mainLayout->addWidget(m_playerView);
 
+	m_splitterLayoutTimer = new QTimer(this);
+	m_splitterLayoutTimer->setSingleShot(true);
+	m_splitterLayoutTimer->setInterval(120);
+	connect(m_splitterLayoutTimer, &QTimer::timeout, this, [this]()
+	{
+		setChartsInteractionPaused(false);
+	});
+
+	connect(splitter, &QSplitter::splitterMoved, this, [this]()
+	{
+		if (!m_chartsInteractionPaused)
+		{
+			setChartsInteractionPaused(true);
+		}
+		m_splitterLayoutTimer->start();
+	});
+
 	attachModels(m_session);
 
 	connect(m_parametersTree, &TelemetryDataView::itemHovered, m_chartsPanel, &ChartsDashboardView::onParameterItemHovered);
@@ -108,5 +127,40 @@ void SessionWorkspace::onHideChartButtonClicked()
 	if (m_session)
 	{
 		m_session->hideChartFromSelectedParameter();
+	}
+}
+
+void SessionWorkspace::setChartsInteractionPaused(bool paused)
+{
+	if (m_chartsInteractionPaused == paused)
+	{
+		return;
+	}
+
+	m_chartsInteractionPaused = paused;
+
+	if (m_chartsPanel)
+	{
+		m_chartsPanel->setLayoutInteractionPaused(paused);
+	}
+
+	if (!m_session)
+	{
+		return;
+	}
+
+	if (auto* chartsModel = m_session->chartsModel())
+	{
+		chartsModel->setChartInteractionPaused(paused);
+	}
+
+	if (m_session->getType() != Session::LiveSession)
+	{
+		return;
+	}
+
+	if (auto* driverPlayer = qobject_cast<DriverDataPlayer*>(m_session->player()))
+	{
+		driverPlayer->setRefreshPaused(paused);
 	}
 }

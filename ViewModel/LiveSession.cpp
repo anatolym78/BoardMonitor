@@ -16,24 +16,17 @@ LiveSession::LiveSession(QObject *parent)
 	m_player->setStorage(m_treeStorage);
 
 	m_chartsModel->setPlayer(m_player);
+	m_parametersModel->attachExternalStorage(m_treeStorage);
 
-	connect(m_player, &DataPlayer::played, this, &LiveSession::onPlayed);
-
-	// Увеличиваем счетчик параметров при добавлении нового значения в хранилище
-	connect(m_treeStorage, &ParameterTreeStorage::valueAdded, this, [this](ParameterTreeHistoryItem*)
-	{
-		incrementParameterCount();
-	});
-}
-
-void LiveSession::onPlayed(ParameterTreeStorage* subStorage, bool isBackPlaying)
-{
-	m_parametersModel->setSnapshot(subStorage, isBackPlaying);
-
-	if (m_startTime.isNull())
-	{
-		m_startTime = QDateTime::currentDateTime();
-	}
+	connect(m_treeStorage, &ParameterTreeStorage::valueAdded, this,
+		[this](ParameterTreeHistoryItem*)
+		{
+			if (m_startTime.isNull())
+			{
+				m_startTime = QDateTime::currentDateTime();
+			}
+			incrementParameterCount();
+		});
 }
 
 void LiveSession::open()
@@ -102,4 +95,5 @@ void LiveSession::clearStorage()
 		m_treeStorage->clear();
 	}
 	resetCounters();
+	emit storageCleared();
 }

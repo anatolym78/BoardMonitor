@@ -4,6 +4,7 @@
 #include "ParameterTreeArrayItem.h"
 #include <QDebug>
 #include <QMutexLocker>
+#include <functional>
 
 ParameterTreeStorage::ParameterTreeStorage(QObject *parent)
 	: ParameterTreeItem("root", nullptr)
@@ -41,10 +42,60 @@ ParameterTreeStorage* ParameterTreeStorage::extractRange(const QDateTime& startT
 
 	for (ParameterTreeItem* child : m_childItems)
 	{
-		extractNode(subStorage, child, startTime, endTime);
+		extractNode(subStorage, child, startTime, endTime, false);
 	}
 
 	return subStorage;
+}
+
+ParameterTreeStorage* ParameterTreeStorage::extractAfter(const QDateTime& after, const QDateTime& endTime) const
+{
+	QMutexLocker locker(&m_mutex);
+	auto subStorage = new ParameterTreeStorage();
+
+	for (ParameterTreeItem* child : m_childItems)
+	{
+		extractNode(subStorage, child, after, endTime, true);
+	}
+
+	return subStorage;
+}
+
+QDateTime ParameterTreeStorage::latestTimestamp() const
+{
+	QMutexLocker locker(&m_mutex);
+
+	QDateTime latest;
+	std::function<void(ParameterTreeItem*)> visit = [&](ParameterTreeItem* node)
+	{
+		if (!node)
+		{
+			return;
+		}
+
+		if (node->type() == ItemType::History)
+		{
+			const auto* history = static_cast<const ParameterTreeHistoryItem*>(node);
+			const QDateTime ts = history->lastTimestamp();
+			if (ts.isValid() && (latest.isNull() || ts > latest))
+			{
+				latest = ts;
+			}
+			return;
+		}
+
+		for (ParameterTreeItem* child : node->children())
+		{
+			visit(child);
+		}
+	};
+
+	for (ParameterTreeItem* child : m_childItems)
+	{
+		visit(child);
+	}
+
+	return latest;
 }
 
 void ParameterTreeStorage::clear()
@@ -437,7 +488,7 @@ void ParameterTreeStorage::setNode(ParameterTreeItem* localParent, ParameterTree
 	}
 }
 
-void ParameterTreeStorage::extractNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, const QDateTime& startTime, const QDateTime& endTime) const
+void ParameterTreeStorage::extractNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, const QDateTime& startTime, const QDateTime& endTime, bool exclusiveLowerBound) const
 {
 	if (incomingNode->type() == ItemType::History)
 	{
@@ -449,7 +500,10 @@ void ParameterTreeStorage::extractNode(ParameterTreeItem* localParent, Parameter
 		bool hasValuesInRange = false;
 		for (int i = 0; i < values.size(); ++i)
 		{
-			if (timestamps[i] >= startTime && timestamps[i] <= endTime)
+			const bool inRange = exclusiveLowerBound
+				? (timestamps[i] > startTime && timestamps[i] <= endTime)
+				: (timestamps[i] >= startTime && timestamps[i] <= endTime);
+			if (inRange)
 			{
 				newHistoryItem->addValue(values[i], timestamps[i]);
 				hasValuesInRange = true;
@@ -501,7 +555,7 @@ void ParameterTreeStorage::extractNode(ParameterTreeItem* localParent, Parameter
 
 		for (ParameterTreeItem* incomingChild : incomingNode->children())
 		{
-			extractNode(newItem, incomingChild, startTime, endTime);
+			extractNode(newItem, incomingChild, startTime, endTime, exclusiveLowerBound);
 		}
 
 		if (newItem->childCount() > 0)

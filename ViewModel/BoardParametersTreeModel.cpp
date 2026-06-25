@@ -11,6 +11,7 @@
 
 BoardParametersTreeModel::BoardParametersTreeModel(QObject* parent)
 	: QAbstractItemModel(parent)
+	, m_ownsRoot(true)
 {
 	makeRandomColors();
 
@@ -19,6 +20,34 @@ BoardParametersTreeModel::BoardParametersTreeModel(QObject* parent)
 	connect(m_rootItem, &ParameterTreeStorage::parameterAdded, this, &BoardParametersTreeModel::onParameterAdded);
 	connect(m_rootItem, &ParameterTreeStorage::valueAdded, this, &BoardParametersTreeModel::onValueAdded);
 	connect(m_rootItem, &ParameterTreeStorage::valueChanged, this, &BoardParametersTreeModel::onValueChanged);
+}
+
+void BoardParametersTreeModel::attachExternalStorage(ParameterTreeStorage* storage)
+{
+	if (!storage || m_rootItem == storage)
+	{
+		return;
+	}
+
+	if (m_rootItem)
+	{
+		disconnect(m_rootItem, nullptr, this, nullptr);
+	}
+
+	if (m_ownsRoot && m_rootItem)
+	{
+		delete m_rootItem;
+	}
+
+	m_rootItem = storage;
+	m_ownsRoot = false;
+
+	connect(m_rootItem, &ParameterTreeStorage::parameterAdded, this, &BoardParametersTreeModel::onParameterAdded);
+	connect(m_rootItem, &ParameterTreeStorage::valueAdded, this, &BoardParametersTreeModel::onValueAdded);
+	connect(m_rootItem, &ParameterTreeStorage::valueChanged, this, &BoardParametersTreeModel::onValueChanged);
+
+	beginResetModel();
+	endResetModel();
 }
 
 void BoardParametersTreeModel::setSnapshot(ParameterTreeStorage* storage, bool isBackPlaying)
@@ -48,6 +77,7 @@ void BoardParametersTreeModel::onParameterAdded(ParameterTreeItem* newItem)
 
 void BoardParametersTreeModel::onValueAdded(ParameterTreeHistoryItem* updatedItem)
 {
+	onValueChanged(updatedItem);
 }
 
 void BoardParametersTreeModel::onValueChanged(ParameterTreeHistoryItem* history)
