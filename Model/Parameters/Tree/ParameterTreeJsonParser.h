@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QVariant>
+#include <QDateTime>
 
 class QJsonDocument;
 class QJsonObject;
@@ -39,6 +40,7 @@ private:
     QJsonValue convertVariantToJson(const QVariant& variant);
 
     QString m_lastError;
+    QDateTime m_snapshotTimestamp;
 };
 
 #endif // PARAMETERTREEJSONPARSER_H

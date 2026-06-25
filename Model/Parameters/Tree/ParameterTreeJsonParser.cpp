@@ -93,6 +93,7 @@ QString ParameterTreeJsonParser::toBoardJson(ParameterTreeStorage* root)
 void ParameterTreeJsonParser::updateJson(const QString &jsonString, ParameterTreeStorage *root)
 {
     m_lastError.clear();
+    m_snapshotTimestamp = QDateTime::currentDateTime();
 
 	QJsonParseError parseError;
 	QJsonDocument doc = QJsonDocument::fromJson(jsonString.toUtf8(), &parseError);
@@ -284,7 +285,7 @@ void ParameterTreeJsonParser::processValue(const QString &key, const QJsonValue 
                 historyItem = new ParameterTreeHistoryItem(itemKey, arrayItem);
                 arrayItem->appendChild(historyItem);
             }
-            historyItem->addValue(convertJsonValue(array[i]), QDateTime::currentDateTime());
+            historyItem->addValue(convertJsonValue(array[i]), m_snapshotTimestamp);
             // Устанавливаем дополнительные поля для элементов массива
             if (!control.isEmpty())
             {
@@ -308,7 +309,7 @@ void ParameterTreeJsonParser::processValue(const QString &key, const QJsonValue 
             historyItem = new ParameterTreeHistoryItem(finalKey, currentItem);
             currentItem->appendChild(historyItem);
         }
-        historyItem->addValue(convertJsonValue(value), QDateTime::currentDateTime());
+        historyItem->addValue(convertJsonValue(value), m_snapshotTimestamp);
         // Устанавливаем дополнительные поля
         if (!control.isEmpty())
         {

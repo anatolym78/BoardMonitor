@@ -25,7 +25,7 @@ class DriverAdapter : public QObject
     Q_OBJECT
 
 public:
-    explicit DriverAdapter(std::string pluginFilename, QObject *parent = nullptr);
+    explicit DriverAdapter(QObject *parent = nullptr);
     ~DriverAdapter();
 
     // Методы управления прослушиванием
@@ -47,7 +47,7 @@ private:
     void onDriverStateChanged(radio::IDriver::State state);
 
 private:
-    void createDriver(std::string pluginFilename);
+    void createDriver();
     void createTreeParameters(const QString& data);
 
     void connectToDriver();

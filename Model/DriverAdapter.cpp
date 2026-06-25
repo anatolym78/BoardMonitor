@@ -2,30 +2,97 @@
 #include "./Parameters/Tree/ParameterTreeJsonParser.h"
 #include "./Parameters/Tree/ParameterTreeStorage.h"
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QStringList>
 
-DriverAdapter::DriverAdapter(std::string pluginFilename, QObject *parent)
+#include <boost/filesystem.hpp>
+
+#include <optional>
+#include <vector>
+
+namespace
+{
+
+std::optional<boost::filesystem::path> findUniqueDriverPlugin()
+{
+	namespace fs = boost::filesystem;
+
+	const fs::path pluginDir = boost::dll::program_location().parent_path();
+	const QString pluginDirQt = QString::fromStdString(pluginDir.string());
+	const QString libSuffix = QString::fromStdString(boost::dll::shared_library::suffix().string());
+
+	std::vector<fs::path> matches;
+
+	const QFileInfoList entries = QDir(pluginDirQt).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+	for (const QFileInfo& info : entries)
+	{
+		if (!info.fileName().endsWith(libSuffix, Qt::CaseInsensitive))
+		{
+			continue;
+		}
+
+		const QString stem = info.completeBaseName();
+		if (!stem.endsWith(QLatin1String("_plugin")))
+		{
+			continue;
+		}
+
+		matches.push_back(pluginDir / stem.toStdString());
+	}
+
+	if (matches.empty())
+	{
+		qCritical() << "DriverAdapter: no *_plugin library found in" << pluginDirQt;
+		return std::nullopt;
+	}
+
+	if (matches.size() > 1)
+	{
+		QStringList names;
+		for (const auto& match : matches)
+		{
+			names << QString::fromStdString(match.filename().string());
+		}
+		qCritical() << "DriverAdapter: expected exactly one *_plugin library, found"
+		            << matches.size() << ":" << names.join(", ");
+		return std::nullopt;
+	}
+
+	return matches.front();
+}
+
+} // namespace
+
+DriverAdapter::DriverAdapter(QObject *parent)
     : QObject(parent)
     , m_treeJsonParser(new ParameterTreeJsonParser(this))
     , m_isConnected(false)
 {
-    createDriver(pluginFilename);
+    createDriver();
 }
 
-void DriverAdapter::createDriver(std::string pluginFilename)
+void DriverAdapter::createDriver()
 {
-    boost::filesystem::path plugin_path =
-        boost::dll::program_location().parent_path() / pluginFilename;// "RCImitator_plugin";
+	const auto pluginPath = findUniqueDriverPlugin();
+	if (!pluginPath)
+	{
+		return;
+	}
+
+	qInfo() << "DriverAdapter: loading plugin"
+	        << QString::fromStdString(pluginPath->filename().string());
 
 	std::unique_ptr<radio::IDriverBuilder> builder;
 	try
 	{
 		if (!m_pluginLibrary.is_loaded())
 		{
-			m_pluginLibrary.load(plugin_path,
+			m_pluginLibrary.load(*pluginPath,
 				boost::dll::load_mode::append_decorations);
 		}
 
@@ -38,6 +105,12 @@ void DriverAdapter::createDriver(std::string pluginFilename)
 	catch (const boost::system::system_error& ex)
 	{
         qCritical() << ex.what();
+	}
+
+	if (!builder)
+	{
+		qCritical() << "DriverAdapter: failed to create driver builder";
+		return;
 	}
 
     m_driver = builder->setDelay(1).enableAck(false).enableShutdown(true).get();

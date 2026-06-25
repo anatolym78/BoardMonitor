@@ -29,11 +29,13 @@ QList<BoardMessagesSqliteReader::SessionInfo> BoardMessagesSqliteReader::getAvai
     QList<SessionInfo> sessions;
     
     QSqlQuery query(m_database);
-    // Используем MAX(pv.id) - MIN(pv.id) для оценки количества сообщений, если timestamp дублируются
-    // Или группируем по секундам для уменьшения шума
+    // Число сообщений = максимальное число значений у одного параметра
+    // (COUNT(DISTINCT timestamp) завышался, т.к. параметры одного пакета имели разное время)
     query.prepare(R"(
         SELECT s.id, s.name, s.created_at, s.description,
-               (SELECT COUNT(DISTINCT timestamp) FROM parameter_values WHERE session_id = s.id) as message_count,
+               (SELECT COALESCE(MAX(cnt), 0) FROM (
+                   SELECT COUNT(*) AS cnt FROM parameter_values WHERE session_id = s.id GROUP BY parameter_id
+               )) as message_count,
                (SELECT COUNT(id) FROM parameter_values WHERE session_id = s.id) as parameter_count
         FROM sessions s
         ORDER BY s.created_at DESC
@@ -49,8 +51,7 @@ QList<BoardMessagesSqliteReader::SessionInfo> BoardMessagesSqliteReader::getAvai
             // Время теперь сохраняется в локальном времени, поэтому просто читаем его
             info.createdAt = query.value("created_at").toDateTime();
             info.description = query.value("description").toString();
-            // COUNT(DISTINCT timestamp) может давать завышенные значения из-за микросекунд
-            // Используем приближенную оценку или считаем честно
+            // MAX по параметрам — число пакетов от борта, а не уникальных timestamp
             info.messageCount = query.value("message_count").toInt();
             info.parameterCount = query.value("parameter_count").toInt();
             sessions.append(info);
@@ -73,7 +74,9 @@ BoardMessagesSqliteReader::SessionInfo BoardMessagesSqliteReader::getSessionInfo
     QSqlQuery query(m_database);
     query.prepare(R"(
         SELECT s.id, s.name, s.created_at, s.description,
-               (SELECT COUNT(DISTINCT timestamp) FROM parameter_values WHERE session_id = s.id) as message_count,
+               (SELECT COALESCE(MAX(cnt), 0) FROM (
+                   SELECT COUNT(*) AS cnt FROM parameter_values WHERE session_id = s.id GROUP BY parameter_id
+               )) as message_count,
                (SELECT COUNT(id) FROM parameter_values WHERE session_id = s.id) as parameter_count
         FROM sessions s
         WHERE s.id = ?
@@ -87,9 +90,6 @@ BoardMessagesSqliteReader::SessionInfo BoardMessagesSqliteReader::getSessionInfo
         // Время теперь сохраняется в локальном времени, поэтому просто читаем его
         info.createdAt = query.value("created_at").toDateTime();
         info.description = query.value("description").toString();
-        // Принудительно ограничиваем сообщение count разумными пределами
-        // Если частота записи 30Гц, то message_count не должен превышать duration * 30
-        // Но здесь мы просто берем честное значение из базы
         info.messageCount = query.value("message_count").toInt();
         info.parameterCount = query.value("parameter_count").toInt();
     }

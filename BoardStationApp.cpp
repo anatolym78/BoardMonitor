@@ -29,7 +29,7 @@ BoardStationApp::BoardStationApp(int &argc, char **argv)
 	m_sessionsListModel = new SessionsListModel(this);
 	m_sessionsListModel->setReader(m_boardMessagesReader);
 	
-	m_driverAdapter = new DriverAdapter("BoardMonitor_plugin", this);
+	m_driverAdapter = new DriverAdapter(this);
 			 
 	setupUplinkParameters();
 
@@ -72,9 +72,6 @@ void BoardStationApp::connectSignals()
 			{
 				liveSession()->incrementMessageCount();
 			});
-
-		connect(m_boardMessagesWriter, &BoardMessagesSqliteWriter::writeSuccess,
-			liveSession(), &LiveSession::incrementMessageCount);
 
 		// Логируем первое сообщение от драйвера
 		static bool isFirstMessage = true;
@@ -185,7 +182,7 @@ bool BoardStationApp::saveLiveData()
 			m_sessionsListModel->setSaveProgress(pct);
 	});
 
-	connect(worker, &WriteTreeWorker::finished, this, [this, newSessionId](bool success)
+	connect(worker, &WriteTreeWorker::finished, this, [this, newSessionId, live](bool success)
 	{
 		if (m_sessionsListModel)
 			m_sessionsListModel->setSaveProgress(-1);
@@ -199,7 +196,13 @@ bool BoardStationApp::saveLiveData()
 			{
 				auto sessionInfo = m_boardMessagesReader->getSessionInfo(newSessionId);
 				if (sessionInfo.id > 0)
+				{
+					// Счётчик живой сессии — по числу пакетов от борта; в БД раньше
+					// COUNT(DISTINCT timestamp) завышался из-за разного времени у параметров.
+					if (live)
+						sessionInfo.messageCount = live->getMessageCount();
 					m_sessionsListModel->addRecordedSession(sessionInfo);
+				}
 			}
 		}
 		else

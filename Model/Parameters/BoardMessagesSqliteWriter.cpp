@@ -204,7 +204,11 @@ int BoardMessagesSqliteWriter::getMessageCount() const
     }
     
     QSqlQuery query(m_database);
-    query.prepare("SELECT COUNT(DISTINCT timestamp) FROM parameter_values WHERE session_id = ?");
+    query.prepare(R"(
+        SELECT COALESCE(MAX(cnt), 0) FROM (
+            SELECT COUNT(*) AS cnt FROM parameter_values WHERE session_id = ? GROUP BY parameter_id
+        )
+    )");
     query.addBindValue(m_currentSessionId);
     
     if (query.exec() && query.next()) 
