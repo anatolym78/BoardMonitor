@@ -26,6 +26,10 @@ public:
 	void initializeWithLoadedData();
 	void refreshSnapshotAtCurrentPosition();
 
+	bool isSeekUpdate() const { return m_seekUpdate; }
+
+	Q_INVOKABLE void setPosition(QDateTime position) override;
+
 private:
 	void updatePlaybackPosition() override;
 
@@ -34,6 +38,7 @@ private:
 	int m_currentSessionId;
 	int m_lastPlayedIndex; // Индекс последнего проигранного параметра
 	QDateTime m_lastPlayedPosition; // Последняя проигранная позиция для отслеживания временного интервала
+	bool m_seekUpdate = false;
 };
 
 #endif // SESSIONPLAYER_H

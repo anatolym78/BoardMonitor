@@ -154,6 +154,8 @@ private:
 private:
 	void onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying);
 	void updateSeries(const QString& label, ParameterTreeHistoryItem* data, bool isBackPlaying);
+	void rebuildSeriesFromHistory(const QString& label, ParameterTreeHistoryItem* data);
+	bool isLivePlayer() const;
 	const qint64 minuteIntervalMsec() { return 15 * 1000; }
 };
 

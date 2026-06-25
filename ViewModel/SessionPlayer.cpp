@@ -122,7 +122,48 @@ void SessionPlayer::refreshSnapshotAtCurrentPosition()
 		endTime = m_sessionStartTime.addMSecs(1);
 	}
 
+	m_seekUpdate = true;
 	playParametersInTimeRange(m_sessionStartTime, endTime);
+	m_seekUpdate = false;
+
+	emit currentPositionChanged();
+	emit elapsedTimeChanged();
+}
+
+void SessionPlayer::setPosition(QDateTime position)
+{
+	if (position < m_sessionStartTime)
+	{
+		position = m_sessionStartTime;
+	}
+	else if (position > m_sessionEndTime)
+	{
+		position = m_sessionEndTime;
+	}
+
+	if (!m_storage || m_sessionStartTime.isNull())
+	{
+		QMutexLocker locker(&m_positionMutex);
+		m_currentPosition = position;
+		emit currentPositionChanged();
+		emit elapsedTimeChanged();
+		return;
+	}
+
+	QDateTime endTime = position;
+	if (endTime <= m_sessionStartTime)
+	{
+		endTime = m_sessionStartTime.addMSecs(1);
+	}
+
+	m_seekUpdate = true;
+	playParametersInTimeRange(m_sessionStartTime, endTime);
+	m_seekUpdate = false;
+
+	{
+		QMutexLocker locker(&m_positionMutex);
+		m_currentPosition = position;
+	}
 
 	emit currentPositionChanged();
 	emit elapsedTimeChanged();
