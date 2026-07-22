@@ -20,6 +20,9 @@
 #include <QChartView>
 #include <QIcon>
 #include <QToolButton>
+#include <QMenu>
+#include <QMenuBar>
+#include <QActionGroup>
 
 QT_CHARTS_USE_NAMESPACE
 
@@ -60,6 +63,7 @@ void MainWindow::setApp(BoardStationApp *pApp)
 	if (!pApp) return;
 
 	m_app = pApp;
+	setupPluginsMenu();
 
 	auto sessions = pApp->sessionsModel();
 
@@ -283,6 +287,88 @@ SessionListView* MainWindow::sessionsListView() const
 void MainWindow::onCheckBoxSetDataImmediately(int state)
 {
 	ui->uplinkParametersView->setSendDataImmediately(state > 0);
+}
+
+void MainWindow::setupPluginsMenu()
+{
+	if (!m_app)
+	{
+		return;
+	}
+
+	auto* adapter = m_app->getDriverAdapter();
+	if (!adapter)
+	{
+		return;
+	}
+
+	auto* settingsMenu = menuBar()->addMenu(tr("Settings"));
+	auto* pluginsMenu = settingsMenu->addMenu(tr("Plugins"));
+
+	m_pluginsActionGroup = new QActionGroup(this);
+	m_pluginsActionGroup->setExclusive(true);
+
+	const QStringList plugins = adapter->availablePlugins();
+	if (plugins.isEmpty())
+	{
+		auto* emptyAction = pluginsMenu->addAction(tr("(no plugins in settings.json)"));
+		emptyAction->setEnabled(false);
+		return;
+	}
+
+	for (const QString& pluginName : plugins)
+	{
+		auto* action = pluginsMenu->addAction(pluginName);
+		action->setCheckable(true);
+		action->setData(pluginName);
+		action->setChecked(pluginName == adapter->currentPlugin());
+		m_pluginsActionGroup->addAction(action);
+
+		connect(action, &QAction::triggered, this, [this, pluginName](bool checked)
+		{
+			if (!checked || !m_app)
+			{
+				return;
+			}
+
+			auto* driverAdapter = m_app->getDriverAdapter();
+			if (!driverAdapter)
+			{
+				return;
+			}
+
+			if (pluginName == driverAdapter->currentPlugin())
+			{
+				return;
+			}
+
+			if (!driverAdapter->switchPlugin(pluginName))
+			{
+				QMessageBox::warning(
+					this,
+					tr("Plugins"),
+					tr("Failed to load plugin \"%1\".").arg(pluginName));
+				syncPluginsMenuSelection(driverAdapter->currentPlugin());
+			}
+		});
+	}
+
+	connect(adapter, &DriverAdapter::currentPluginChanged,
+		this, &MainWindow::syncPluginsMenuSelection);
+}
+
+void MainWindow::syncPluginsMenuSelection(const QString& pluginName)
+{
+	if (!m_pluginsActionGroup)
+	{
+		return;
+	}
+
+	const QList<QAction*> actions = m_pluginsActionGroup->actions();
+	for (QAction* action : actions)
+	{
+		action->setChecked(action->data().toString() == pluginName);
+	}
 }
 
 

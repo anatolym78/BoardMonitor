@@ -11,6 +11,7 @@
 
 class BoardStationApp;
 class ChartBuilder;
+class QActionGroup;
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -45,6 +46,11 @@ private:
 
 private:
     void onCheckBoxSetDataImmediately(int state);
+    void setupPluginsMenu();
+    void syncPluginsMenuSelection(const QString& pluginName);
+
+private:
+    QActionGroup* m_pluginsActionGroup = nullptr;
 };
 
 #endif // MAINWINDOW_H

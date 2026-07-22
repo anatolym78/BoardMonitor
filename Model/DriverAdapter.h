@@ -2,68 +2,75 @@
 #define DRIVERADAPTER_H
 
 #include <QObject>
+#include <QString>
+#include <QStringList>
 
-//#include "./../Services/RCDriver/driverinterface.h"
 #include "./../Services/RCImitator/src/driver.hh"
 #include "./../Services/RCImitator/src/builder.hh"
 
 #include <boost/dll/import.hpp>
 #include <boost/dll/shared_library.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/system/system_error.hpp>
 
-#include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 
+#include "AppSettings.h"
 #include "Parameters/Tree/ParameterTreeStorage.h"
 
 class ParameterTreeJsonParser;
-
 class TelemetryIngestService;
 
 class DriverAdapter : public QObject
 {
-    Q_OBJECT
+	Q_OBJECT
 
 public:
-    explicit DriverAdapter(QObject *parent = nullptr);
-    ~DriverAdapter();
+	explicit DriverAdapter(QObject *parent = nullptr);
+	~DriverAdapter();
 
-    // Методы управления прослушиванием
-    void startListening();
-    void stopListening();
-    
-    // Метод для отправки параметра на борт
-    void sendParameterTreeSnapshot(ParameterTreeStorage* snapshot);
+	void startListening();
+	void stopListening();
 
-    void setIngestService(TelemetryIngestService* ingestService);
+	void sendParameterTreeSnapshot(ParameterTreeStorage* snapshot);
+	void setIngestService(TelemetryIngestService* ingestService);
+
+	QString currentPlugin() const { return m_currentPlugin; }
+	QStringList availablePlugins() const { return m_settings.plugins(); }
+	bool switchPlugin(const QString& pluginName);
 
 signals:
-    // Сигнал для древовидных параметров
-    void parameterTreeReceived(ParameterTreeStorage* root);
-    void driverStateChanged(radio::IDriver::State state);
-    void driverConnected();
-    void driverDisconnected();
+	void parameterTreeReceived(ParameterTreeStorage* root);
+	void driverStateChanged(radio::IDriver::State state);
+	void driverConnected();
+	void driverDisconnected();
+	void currentPluginChanged(const QString& pluginName);
 
 private:
-    void onDriverDataAvailable(QString data);
-    void onDriverStateChanged(radio::IDriver::State state);
+	void onDriverDataAvailable(QString data);
+	void onDriverStateChanged(radio::IDriver::State state);
+
+	bool createDriver(const QString& pluginName);
+	void destroyDriver();
+	void createTreeParameters(const QString& data);
+
+	void connectToDriver();
+	void disconnectFromDriver();
+
+	std::optional<boost::filesystem::path> resolvePluginPath(const QString& pluginName) const;
 
 private:
-    void createDriver();
-    void createTreeParameters(const QString& data);
-
-    void connectToDriver();
-    void disconnectFromDriver();
-
-private:
-    /** Удерживает DLL плагина загруженной на время жизни драйвера. */
-    boost::dll::shared_library m_pluginLibrary;
-    std::shared_ptr<radio::IDriver> m_driver;
-    ParameterTreeJsonParser* m_treeJsonParser;
-    TelemetryIngestService* m_ingestService = nullptr;
-    bool m_isConnected;
+	AppSettings m_settings;
+	QString m_currentPlugin;
+	boost::dll::shared_library m_pluginLibrary;
+	std::shared_ptr<radio::IDriver> m_driver;
+	ParameterTreeJsonParser* m_treeJsonParser;
+	TelemetryIngestService* m_ingestService = nullptr;
+	bool m_isConnected = false;
+	bool m_isListening = false;
 };
 
 #endif // DRIVERADAPTER_H

@@ -1,0 +1,7 @@
+{
+  "plugins": [
+    "BoardMonitor_plugin",
+    "BoardMonitor_plugin2"
+  ],
+  "currentPlugin": "BoardMonitor_plugin2"
+}

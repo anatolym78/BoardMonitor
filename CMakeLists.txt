@@ -124,6 +124,8 @@ set(
     MODEL_SOURCES
     Model/DriverAdapter.cpp
     Model/DriverAdapter.h
+    Model/AppSettings.cpp
+    Model/AppSettings.h
     Model/Telemetry/TelemetryIngestService.cpp
     Model/Telemetry/TelemetryIngestService.h
     Model/Telemetry/TelemetryIngestWorker.cpp

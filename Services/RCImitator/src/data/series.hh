@@ -51,7 +51,8 @@ namespace radio
 			SinusFunction angle_yaw_func = SinusFunction(30, 20, 3.14159265359f);
 			SinusFunction ground_speed_func =  SinusFunction(10, 18, 0);
 			SinusFunction voltage_func =  SinusFunction(2, 5, 0, 12);
-			SinusFunction throttle_func = SinusFunction(40, 10, 0, 250);
+			//SinusFunction throttle_func = SinusFunction(100, 20, 0); 
+			SinusFunction throttle_func = SinusFunction(100, 20, 0, 100);
 			SinusFunction adjustments_one_func = SinusFunction(25, 5, 0, 300);
 			SinusFunction adjustments_two_func = SinusFunction(30, 5, 1.57079632679f, 300);
 			SinusFunction adjustments_three_func = SinusFunction(20, 5, 3.0f, 300);
