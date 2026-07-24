@@ -15,8 +15,8 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 set(Boost_USE_MULTITHREADED ON)
 #add_definitions(-DBOOST_ALL_NO_LIB)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Sql)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Sql)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Sql PrintSupport)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Sql PrintSupport)
 find_package(Boost 1.89.0 REQUIRED COMPONENTS filesystem json exception)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -160,6 +160,10 @@ set(
     Model/Parameters/Step.h
     )
 
+set(CUSTOM_PLOT
+qcustomplot/include/qcustomplot.h
+qcustomplot/src/qcustomplot.cpp
+)
 set(
     SERVICE_SOURCES  
     Services/RCImitator/src/driver.hh
@@ -173,6 +177,7 @@ set(
     ${VIEWMODEL_SOURCES}
     ${MODEL_SOURCES}
     ${SERVICE_SOURCES}
+    ${CUSTOM_PLOT}
     )
 
 add_library(${PROJECT_NAME}_plugin SHARED
@@ -221,6 +226,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/qcustomplot/include
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
@@ -230,6 +236,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets 
     Qt${QT_VERSION_MAJOR}::Charts 
     Qt${QT_VERSION_MAJOR}::Sql
+    Qt${QT_VERSION_MAJOR}::PrintSupport
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)

@@ -63,7 +63,7 @@ namespace radio
 			SinusFunction attitude_roll_func = SinusFunction(100, 30, 0);
 			SinusFunction attitude_pitch_func = SinusFunction(150, 45, 1.57079632679f);
 			SinusFunction attitude_yaw_func = SinusFunction(200, 60, 3.14159265359f);
-			SinusFunction altitude_func = SinusFunction(5000, 40, 0, 100000);
+			SinusFunction altitude_func = SinusFunction(500, 40, 0, 2000);
 			SinusFunction gps_lat_func = SinusFunction(269583, 120, 0);
 			SinusFunction gps_lon_func = SinusFunction(479928, 120, 1.57079632679f);
 
