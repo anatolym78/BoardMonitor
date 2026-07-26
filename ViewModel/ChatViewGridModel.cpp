@@ -341,20 +341,47 @@ void ChatViewGridModel::rebuildSeriesFromHistory(const QString& label, Parameter
 	const auto& values = data->values();
 	appendNumericPoints(graph, times, values);
 
-	if (!graph->data()->isEmpty())
+	if (graph->data()->isEmpty())
 	{
-		refreshTimeAxisIfNeeded(chart, graph->data()->firstKey(), graph->data()->lastKey(), false);
+		replotChart(chart);
+		return;
+	}
 
-		if (chart.valueAxis)
+	// Окно фиксированной ширины, привязанное к позиции плеера. Иначе при перемотке
+	// записи в график каждый раз вписывалась бы вся доступная история
+	const double span = visibleSpanSeconds();
+	double endKey = graph->data()->firstKey() + span;
+
+	if (m_dataPlayer)
+	{
+		endKey = qMax(endKey, toPlotKey(m_dataPlayer->currentPosition()));
+	}
+
+	const double beginKey = endKey - span;
+
+	graph->removeDataBefore(beginKey);
+	graph->removeDataAfter(endKey);
+
+	refreshTimeAxisIfNeeded(chart, beginKey, endKey, false);
+
+	if (chart.valueAxis && !graph->data()->isEmpty())
+	{
+		double localMin = std::numeric_limits<double>::max();
+		double localMax = std::numeric_limits<double>::lowest();
+		for (const QCPData& point : *graph->data())
 		{
-			double localMin = std::numeric_limits<double>::max();
-			double localMax = std::numeric_limits<double>::lowest();
-			for (const QCPData& point : *graph->data())
+			localMin = qMin(localMin, point.value);
+			localMax = qMax(localMax, point.value);
+		}
+
+		if (localMin <= localMax)
+		{
+			const double valueRange = localMax - localMin;
+			if (qFuzzyIsNull(valueRange))
 			{
-				localMin = qMin(localMin, point.value);
-				localMax = qMax(localMax, point.value);
+				chart.valueAxis->setRange(localMin - 1, localMax + 1);
 			}
-			if (localMin <= localMax)
+			else
 			{
 				chart.valueAxis->setRange(localMin, localMax);
 			}

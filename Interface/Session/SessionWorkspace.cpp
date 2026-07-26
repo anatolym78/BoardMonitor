@@ -10,6 +10,7 @@
 #include <QToolButton>
 #include <QHBoxLayout>
 #include <QTimer>
+#include <QResizeEvent>
 #include "../../Model/Parameters/Tree/ParameterTreeStorage.h"
 #include "../../ViewModel/DriverDataPlayer.h"
 
@@ -70,21 +71,17 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	mainLayout->addWidget(splitter, 1);
 	mainLayout->addWidget(m_playerView);
 
-	m_splitterLayoutTimer = new QTimer(this);
-	m_splitterLayoutTimer->setSingleShot(true);
-	m_splitterLayoutTimer->setInterval(120);
-	connect(m_splitterLayoutTimer, &QTimer::timeout, this, [this]()
+	m_layoutSettleTimer = new QTimer(this);
+	m_layoutSettleTimer->setSingleShot(true);
+	m_layoutSettleTimer->setInterval(120);
+	connect(m_layoutSettleTimer, &QTimer::timeout, this, [this]()
 	{
 		setChartsInteractionPaused(false);
 	});
 
 	connect(splitter, &QSplitter::splitterMoved, this, [this]()
 	{
-		if (!m_chartsInteractionPaused)
-		{
-			setChartsInteractionPaused(true);
-		}
-		m_splitterLayoutTimer->start();
+		pauseChartsUntilLayoutSettles();
 	});
 
 	attachModels(m_session);
@@ -128,6 +125,31 @@ void SessionWorkspace::onHideChartButtonClicked()
 	{
 		m_session->hideChartFromSelectedParameter();
 	}
+}
+
+void SessionWorkspace::resizeEvent(QResizeEvent* event)
+{
+	QFrame::resizeEvent(event);
+
+	// Размеры ячеек привязаны к ширине области просмотра, поэтому при растягивании
+	// окна графики пересобирались бы на каждом событии изменения размера
+	pauseChartsUntilLayoutSettles();
+}
+
+void SessionWorkspace::pauseChartsUntilLayoutSettles()
+{
+	// resizeEvent может прийти до окончания конструирования
+	if (!m_layoutSettleTimer)
+	{
+		return;
+	}
+
+	if (!m_chartsInteractionPaused)
+	{
+		setChartsInteractionPaused(true);
+	}
+
+	m_layoutSettleTimer->start();
 }
 
 void SessionWorkspace::setChartsInteractionPaused(bool paused)

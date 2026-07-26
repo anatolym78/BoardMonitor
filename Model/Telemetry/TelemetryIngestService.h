@@ -32,9 +32,5 @@ private:
     QThread* m_thread = nullptr;
     TelemetryIngestWorker* m_worker = nullptr;
     bool m_started = false;
-    quint64 m_packetSequence = 0;
-    QDateTime m_sessionAnchor;
-    bool m_anchorSet = false;
-
-    static constexpr int PACKET_INTERVAL_MS = 33;
+    QDateTime m_lastTimestamp;
 };

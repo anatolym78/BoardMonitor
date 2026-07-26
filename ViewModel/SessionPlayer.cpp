@@ -156,14 +156,15 @@ void SessionPlayer::setPosition(QDateTime position)
 		endTime = m_sessionStartTime.addMSecs(1);
 	}
 
-	m_seekUpdate = true;
-	playParametersInTimeRange(m_sessionStartTime, endTime);
-	m_seekUpdate = false;
-
+	// Позиция обновляется до воспроизведения: по ней графики выбирают видимое окно
 	{
 		QMutexLocker locker(&m_positionMutex);
 		m_currentPosition = position;
 	}
+
+	m_seekUpdate = true;
+	playParametersInTimeRange(m_sessionStartTime, endTime);
+	m_seekUpdate = false;
 
 	emit currentPositionChanged();
 	emit elapsedTimeChanged();

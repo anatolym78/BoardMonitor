@@ -30,12 +30,16 @@ public:
     TelemetryDataView* parametersTree() const { return m_parametersTree; }
     PlaybackView* playerView() const { return m_playerView; }
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private slots:
     void onShowChartButtonClicked();
     void onHideChartButtonClicked();
 
 private:
     void setChartsInteractionPaused(bool paused);
+    void pauseChartsUntilLayoutSettles();
 
     QPointer<Session> m_session; 
     TelemetryDataView* m_parametersTree;
@@ -43,7 +47,8 @@ private:
     PlaybackView* m_playerView;
     QToolButton* m_showChartButton;
     QToolButton* m_hideChartButton;
-    QTimer* m_splitterLayoutTimer = nullptr;
+    /** Отложенное возобновление отрисовки: общий для перетаскивания сплиттера и изменения размеров окна. */
+    QTimer* m_layoutSettleTimer = nullptr;
     bool m_chartsInteractionPaused = false;
 };
 

@@ -54,15 +54,17 @@ void TelemetryIngestService::enqueue(const QString& json)
         return;
     }
 
-    const quint64 sequence = ++m_packetSequence;
-    if (!m_anchorSet)
+    // Метка ставится по фактическому времени прихода пакета. Фиксированный шаг
+    // уводил шкалу от реального времени: драйвер присылает пакеты чаще, чем шаг,
+    // а накопившаяся за паузу интерфейса очередь растягивала график по оси времени
+    QDateTime packetTimestamp = QDateTime::currentDateTime();
+
+    if (m_lastTimestamp.isValid() && packetTimestamp < m_lastTimestamp)
     {
-        m_sessionAnchor = QDateTime::currentDateTime();
-        m_anchorSet = true;
+        packetTimestamp = m_lastTimestamp;
     }
 
-    const QDateTime packetTimestamp = m_sessionAnchor.addMSecs(
-        static_cast<qint64>(sequence - 1) * PACKET_INTERVAL_MS);
+    m_lastTimestamp = packetTimestamp;
 
     QMetaObject::invokeMethod(
         m_worker,
@@ -76,6 +78,5 @@ void TelemetryIngestService::enqueue(const QString& json)
 
 void TelemetryIngestService::resetSessionClock()
 {
-    m_packetSequence = 0;
-    m_anchorSet = false;
+    m_lastTimestamp = QDateTime();
 }
