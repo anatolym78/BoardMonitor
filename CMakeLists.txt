@@ -15,8 +15,8 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 set(Boost_USE_MULTITHREADED ON)
 #add_definitions(-DBOOST_ALL_NO_LIB)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Sql PrintSupport)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Sql PrintSupport)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql PrintSupport)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql PrintSupport)
 find_package(Boost 1.89.0 REQUIRED COMPONENTS filesystem json exception)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -234,7 +234,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Boost::json
     Boost::exception
     Qt${QT_VERSION_MAJOR}::Widgets 
-    Qt${QT_VERSION_MAJOR}::Charts 
     Qt${QT_VERSION_MAJOR}::Sql
     Qt${QT_VERSION_MAJOR}::PrintSupport
 )

@@ -51,15 +51,15 @@ private:
 	QGridLayout* m_gridLayout;
 	QToolButton* m_toggleColumnButton;
 	int m_columnCount = 1;
-	QMap<QtCharts::QAbstractSeries*, QColor>  m_seriesColors;
+	QMap<QCPAbstractPlottable*, QColor>  m_seriesColors;
 	bool m_layoutInteractionPaused = false;
 
 private:
-	void addSeriesToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* parameter);
-	void addHistoryDescendantsToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* item);
+	void addSeriesToChart(int chartIndex, ParametersChartView* chartView, ParameterTreeItem* parameter);
+	void addHistoryDescendantsToChart(int chartIndex, ParametersChartView* chartView, ParameterTreeItem* item);
 	QList<ParametersChartView*> chartViewList() const;
-	void hoverSeries(QtCharts::QAbstractSeries* series);
-	void restoreSeriesColor(QtCharts::QAbstractSeries* series);
+	void hoverSeries(QCPAbstractPlottable* series);
+	void restoreSeriesColor(QCPAbstractPlottable* series);
 };
 
 #endif // CHARTSPANEL_H

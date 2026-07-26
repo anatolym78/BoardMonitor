@@ -5,14 +5,12 @@
 #include <QAbstractTableModel>
 #include <QString>
 #include <QList>
-#include <QtCharts/QChartView>
-#include <QtCharts/QChart>
-#include <QtCharts/QLineSeries>
-#include <QtCharts/QValueAxis>
-#include <QtCharts/QDateTimeAxis>
 #include <QDateTime>
 #include <QVariant>
 #include <QColor>
+#include <QPointer>
+
+#include "qcustomplot.h"
 
 #include "./../Model/Parameters/Tree/ParameterTreeItem.h"
 #include "./../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
@@ -42,11 +40,12 @@ public:
 		QStringList series;
 		QColor color = Qt::darkGray;
 		bool isSelected = false;
-		QMap<QString, QPointer<QtCharts::QLineSeries>> seriesMap;
-		QPointer<QtCharts::QDateTimeAxis> timeAxis = nullptr;
-		QPointer<QtCharts::QValueAxis> valueAxis = nullptr;
+		QMap<QString, QPointer<QCPGraph>> seriesMap;
+		QPointer<QCustomPlot> plot = nullptr;
+		QPointer<QCPAxis> timeAxis = nullptr;
+		QPointer<QCPAxis> valueAxis = nullptr;
 		bool isAxesInitialized = false;
-		qint64 lastAxisEndMs = 0;
+		double lastAxisEndKey = 0.0;
 		qint64 lastAxisUpdateMs = 0;
 	};
 
@@ -104,8 +103,8 @@ public:
 	Q_INVOKABLE bool isCanMergeCharts() const;
 
 	// new (move charts logic to c++ code)
-	Q_INVOKABLE void addSeriesToChart(int chartIndex, const QString& label, const QColor& color, QtCharts::QLineSeries* series, QtCharts::QDateTimeAxis* timeAxis, QtCharts::QValueAxis* valueAxis);
-	Q_INVOKABLE void moveSeriesToChart(int chartIndex, const QString& label, QtCharts::QLineSeries* series);
+	Q_INVOKABLE void addSeriesToChart(int chartIndex, const QString& label, const QColor& color, QCustomPlot* plot, QCPGraph* graph, QCPAxis* timeAxis, QCPAxis* valueAxis);
+	Q_INVOKABLE void moveSeriesToChart(int chartIndex, const QString& label, QCustomPlot* plot, QCPGraph* graph);
 	
 	Q_INVOKABLE bool isSeriesCreated(const QString& label) const;
 
@@ -156,7 +155,8 @@ private:
 	void updateSeries(const QString& label, ParameterTreeHistoryItem* data, bool isBackPlaying);
 	void rebuildSeriesFromHistory(const QString& label, ParameterTreeHistoryItem* data);
 	bool isLivePlayer() const;
-	const qint64 minuteIntervalMsec() { return 15 * 1000; }
+	/** Ширина видимого окна графика в координатах оси времени (секунды с эпохи). */
+	double visibleSpanSeconds() const { return 15.0; }
 };
 
 #endif // CHATVIEWGRIDMODEL_H

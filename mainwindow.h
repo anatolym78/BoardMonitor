@@ -5,7 +5,6 @@
 #include <QMdiSubWindow>
 #include <QMap>
 #include <QStackedWidget>
-#include <QChartView>
 #include "Interface/Session/SessionStackView.h"
 #include "Interface/Session/SessionListView.h"
 

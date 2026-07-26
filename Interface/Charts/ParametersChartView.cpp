@@ -1,17 +1,27 @@
 #include "ParametersChartView.h"
-#include <QtCharts/QChart>
 #include <QEvent>
+#include <QMouseEvent>
+
+namespace
+{
+
+// QCustomPlot рисует один фон на весь виджет, поэтому полупрозрачные подсветки
+// QtCharts (view + chart area) заранее смешаны с белым.
+const QColor kNormalBackground = QColor(Qt::white);
+const QColor kSelectedBackground = QColor(227, 239, 255);
+const QColor kHoveredBackground = QColor(255, 239, 193);
+
+} // namespace
 
 ParametersChartView::ParametersChartView(int chartIndex, int row, int column, QWidget* parent)
-	: QtCharts::QChartView(parent)
-	, m_selected(false)
-	, m_hovered(false)
+	: QCustomPlot(parent)
 	, m_row(row)
 	, m_column(column)
 	, m_chartIndex(chartIndex)
+	, m_selected(false)
+	, m_hovered(false)
 {
-	// Устанавливаем белый фон для view по умолчанию
-	setBackgroundBrush(QBrush(Qt::white));
+	setBackground(QBrush(kNormalBackground));
 }
 
 void ParametersChartView::setSelected(bool selected)
@@ -34,7 +44,7 @@ void ParametersChartView::setHovered(bool hover)
 
 void ParametersChartView::enterEvent(QEvent* event)
 {
-	QtCharts::QChartView::enterEvent(event);
+	QCustomPlot::enterEvent(event);
 	
 	m_hovered = true;
 
@@ -43,15 +53,19 @@ void ParametersChartView::enterEvent(QEvent* event)
 
 void ParametersChartView::leaveEvent(QEvent* event)
 {
-	QtCharts::QChartView::leaveEvent(event);
+	QCustomPlot::leaveEvent(event);
 	
 	m_hovered = false;
+
+	setHoveredGraph(nullptr);
 
 	updateBackground();
 }
 
 void ParametersChartView::mousePressEvent(QMouseEvent* event)
 {
+	QCustomPlot::mousePressEvent(event);
+
 	if (event->button() == Qt::MouseButton::LeftButton)
 	{
 		m_selected = !m_selected;
@@ -62,27 +76,47 @@ void ParametersChartView::mousePressEvent(QMouseEvent* event)
 	}
 }
 
-void ParametersChartView::updateBackground()
+void ParametersChartView::mouseMoveEvent(QMouseEvent* event)
 {
-	// Обновляем фон view в зависимости от состояния selected
-	if (m_selected)
+	QCustomPlot::mouseMoveEvent(event);
+
+	setHoveredGraph(qobject_cast<QCPGraph*>(plottableAt(event->pos())));
+}
+
+void ParametersChartView::setHoveredGraph(QCPGraph* graph)
+{
+	if (m_hoveredGraph == graph)
 	{
-		// Полупрозрачный синий при выделении
-		setBackgroundBrush(QBrush(QColor::fromHsv(215, 225, 255, 32)));
-	}
-	else
-	{
-		// Белый при снятии выделения
-		setBackgroundBrush(QBrush(Qt::white));
+		return;
 	}
 
-	if (m_hovered)
+	if (m_hoveredGraph)
 	{
-		chart()->setBackgroundBrush(QBrush(QColor::fromHsv(45, 255, 255, 62)));
+		emit graphHovered(m_hoveredGraph, false);
 	}
-	else
+
+	m_hoveredGraph = graph;
+
+	if (m_hoveredGraph)
 	{
-		chart()->setBackgroundBrush(QBrush(QColor(0, 0, 0, 0)));
+		emit graphHovered(m_hoveredGraph, true);
 	}
 }
 
+void ParametersChartView::updateBackground()
+{
+	if (m_hovered)
+	{
+		setBackground(QBrush(kHoveredBackground));
+	}
+	else if (m_selected)
+	{
+		setBackground(QBrush(kSelectedBackground));
+	}
+	else
+	{
+		setBackground(QBrush(kNormalBackground));
+	}
+
+	replot(QCustomPlot::rpQueued);
+}

@@ -17,14 +17,11 @@
 #include <QHeaderView>
 #include <QTextEdit>
 #include <QMessageBox>
-#include <QChartView>
 #include <QIcon>
 #include <QToolButton>
 #include <QMenu>
 #include <QMenuBar>
 #include <QActionGroup>
-
-QT_CHARTS_USE_NAMESPACE
 
 MainWindow::MainWindow(QWidget *parent)
 	: QMainWindow(parent)

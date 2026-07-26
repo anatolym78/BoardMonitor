@@ -1,9 +1,5 @@
 #include "ChatViewGridModel.h"
 #include <QDebug>
-#include <QtCharts/QChart>
-#include <QtCharts/QLineSeries>
-#include <QtCharts/QValueAxis>
-#include <QtCharts/QChartView>
 #include <QDateTime>
 #include <limits>
 
@@ -13,20 +9,30 @@
 namespace
 {
 
-void applyTimeAxisRange(QtCharts::QDateTimeAxis* axis, qint64 beginMs, qint64 endMs)
+/** Ось времени QCustomPlot в режиме ltDateTime измеряется в секундах с эпохи. */
+double toPlotKey(const QDateTime& time)
+{
+	return time.toMSecsSinceEpoch() / 1000.0;
+}
+
+QDateTime fromPlotKey(double key)
+{
+	return QDateTime::fromMSecsSinceEpoch(static_cast<qint64>(key * 1000.0));
+}
+
+void applyTimeAxisRange(QCPAxis* axis, double beginKey, double endKey)
 {
 	if (!axis)
 	{
 		return;
 	}
 
-	const qint64 span = qMax<qint64>(endMs - beginMs, 1000);
-	const qint64 pad = span / 20;
-	axis->setMin(QDateTime::fromMSecsSinceEpoch(beginMs - pad));
-	axis->setMax(QDateTime::fromMSecsSinceEpoch(endMs + pad));
+	const double span = qMax(endKey - beginKey, 1.0);
+	const double pad = span / 20.0;
+	axis->setRange(beginKey - pad, endKey + pad);
 }
 
-bool shouldRefreshTimeAxis(const ChatViewGridModel::ChartInfo& chart, qint64 endMs)
+bool shouldRefreshTimeAxis(const ChatViewGridModel::ChartInfo& chart, double endKey)
 {
 	if (!chart.isAxesInitialized)
 	{
@@ -34,7 +40,7 @@ bool shouldRefreshTimeAxis(const ChatViewGridModel::ChartInfo& chart, qint64 end
 	}
 
 	const qint64 now = QDateTime::currentMSecsSinceEpoch();
-	if (endMs > chart.lastAxisEndMs + 1000)
+	if (endKey > chart.lastAxisEndKey + 1.0)
 	{
 		return true;
 	}
@@ -42,29 +48,30 @@ bool shouldRefreshTimeAxis(const ChatViewGridModel::ChartInfo& chart, qint64 end
 	return (now - chart.lastAxisUpdateMs) >= 250;
 }
 
-void refreshTimeAxisIfNeeded(ChatViewGridModel::ChartInfo& chart, qint64 beginMs, qint64 endMs, bool throttle)
+void refreshTimeAxisIfNeeded(ChatViewGridModel::ChartInfo& chart, double beginKey, double endKey, bool throttle)
 {
-	if (throttle && !shouldRefreshTimeAxis(chart, endMs))
+	if (throttle && !shouldRefreshTimeAxis(chart, endKey))
 	{
 		return;
 	}
 
-	applyTimeAxisRange(chart.timeAxis, beginMs, endMs);
+	applyTimeAxisRange(chart.timeAxis, beginKey, endKey);
 	chart.isAxesInitialized = true;
-	chart.lastAxisEndMs = endMs;
+	chart.lastAxisEndKey = endKey;
 	chart.lastAxisUpdateMs = QDateTime::currentMSecsSinceEpoch();
 }
 
-bool appendNumericPoints(QtCharts::QLineSeries* series, const QList<QDateTime>& times, const QList<QVariant>& values)
+bool appendNumericPoints(QCPGraph* graph, const QList<QDateTime>& times, const QList<QVariant>& values)
 {
-	if (!series || times.isEmpty() || times.count() != values.count())
+	if (!graph || times.isEmpty() || times.count() != values.count())
 	{
 		return false;
 	}
 
-	qint64 lastX = series->count() > 0
-		? static_cast<qint64>(series->at(series->count() - 1).x())
-		: std::numeric_limits<qint64>::min();
+	// QCPGraph::addData вставляет через insertMulti, поэтому дубликаты отсекаем сами
+	double lastKey = graph->data()->isEmpty()
+		? std::numeric_limits<double>::lowest()
+		: graph->data()->lastKey();
 
 	bool added = false;
 	for (int i = 0; i < values.count(); ++i)
@@ -76,18 +83,26 @@ bool appendNumericPoints(QtCharts::QLineSeries* series, const QList<QDateTime>& 
 			continue;
 		}
 
-		const qint64 x = times[i].toMSecsSinceEpoch();
-		if (x <= lastX)
+		const double key = toPlotKey(times[i]);
+		if (key <= lastKey)
 		{
 			continue;
 		}
 
-		series->append(x, y);
-		lastX = x;
+		graph->addData(key, y);
+		lastKey = key;
 		added = true;
 	}
 
 	return added;
+}
+
+void replotChart(const ChatViewGridModel::ChartInfo& chart)
+{
+	if (chart.plot)
+	{
+		chart.plot->replot(QCustomPlot::rpQueued);
+	}
 }
 
 } // namespace
@@ -225,13 +240,18 @@ void ChatViewGridModel::toggleParameter(ParameterTreeItem* parameter)//QString c
 	}
 }
 
-void ChatViewGridModel::addSeriesToChart(int chartIndex, const QString& label, const QColor& color, QtCharts::QLineSeries* series, QtCharts::QDateTimeAxis* timeAxis, QtCharts::QValueAxis* valueAxis)
+void ChatViewGridModel::addSeriesToChart(int chartIndex, const QString& label, const QColor& color, QCustomPlot* plot, QCPGraph* graph, QCPAxis* timeAxis, QCPAxis* valueAxis)
 {
 	if (chartIndex < 0 || chartIndex >= m_charts.count()) return;
+	if (!graph) return;
 
-	series->setColor(color);
-	series->setName(label);
-	m_charts[chartIndex].seriesMap[label] = QPointer<QtCharts::QLineSeries>(series);
+	QPen graphPen = graph->pen();
+	graphPen.setColor(color);
+	graph->setPen(graphPen);
+	graph->setName(label);
+
+	m_charts[chartIndex].seriesMap[label] = QPointer<QCPGraph>(graph);
+	m_charts[chartIndex].plot = plot;
 	m_charts[chartIndex].timeAxis = timeAxis;
 	m_charts[chartIndex].valueAxis = valueAxis;
 
@@ -289,6 +309,9 @@ void ChatViewGridModel::onPlayed(ParameterTreeStorage* snapshot, bool isBackPlay
 				updateSeries(key, data, isBackPlaying);
 			}
 		}
+
+		// QCustomPlot не перерисовывается сам, один replot на график за такт обновления
+		replotChart(chart);
 	}
 }
 
@@ -306,41 +329,39 @@ void ChatViewGridModel::rebuildSeriesFromHistory(const QString& label, Parameter
 	}
 
 	auto& chart = m_charts[chartIndex];
-	auto series = chart.seriesMap[label];
-	if (series == nullptr)
+	auto graph = chart.seriesMap[label];
+	if (graph == nullptr)
 	{
 		return;
 	}
 
-	series->clear();
+	graph->clearData();
 
 	const auto& times = data->timestamps();
 	const auto& values = data->values();
-	appendNumericPoints(series, times, values);
+	appendNumericPoints(graph, times, values);
 
-	if (series->count() > 0)
+	if (!graph->data()->isEmpty())
 	{
-		const qint64 beginMs = static_cast<qint64>(series->at(0).x());
-		const qint64 endMs = static_cast<qint64>(series->at(series->count() - 1).x());
-		refreshTimeAxisIfNeeded(chart, beginMs, endMs, false);
+		refreshTimeAxisIfNeeded(chart, graph->data()->firstKey(), graph->data()->lastKey(), false);
 
 		if (chart.valueAxis)
 		{
 			double localMin = std::numeric_limits<double>::max();
 			double localMax = std::numeric_limits<double>::lowest();
-			for (int i = 0; i < series->count(); ++i)
+			for (const QCPData& point : *graph->data())
 			{
-				const double y = series->at(i).y();
-				localMin = qMin(localMin, y);
-				localMax = qMax(localMax, y);
+				localMin = qMin(localMin, point.value);
+				localMax = qMax(localMax, point.value);
 			}
 			if (localMin <= localMax)
 			{
-				chart.valueAxis->setMin(localMin);
-				chart.valueAxis->setMax(localMax);
+				chart.valueAxis->setRange(localMin, localMax);
 			}
 		}
 	}
+
+	replotChart(chart);
 }
 
 void ChatViewGridModel::updateSeries(const QString& label, ParameterTreeHistoryItem* data, bool isBackPlaying)
@@ -353,11 +374,10 @@ void ChatViewGridModel::updateSeries(const QString& label, ParameterTreeHistoryI
 
 	// find series
 	auto& chart = m_charts[chartIndex];
-	auto series = chart.seriesMap[label];
-	if (series == nullptr) return;
+	auto graph = chart.seriesMap[label];
+	if (graph == nullptr) return;
 
 	// get chart axes
-	auto timeAxis = chart.timeAxis;
 	auto valueAxis = chart.valueAxis;
 
 	// get data values and times
@@ -368,47 +388,25 @@ void ChatViewGridModel::updateSeries(const QString& label, ParameterTreeHistoryI
 	const bool throttleAxis = isLivePlayer();
 
 	// if series has no points, then add points and return
-	if (series->count() == 0)
+	if (graph->data()->isEmpty())
 	{
-		appendNumericPoints(series, times, values);
+		appendNumericPoints(graph, times, values);
 
-		if (series->count() > 0)
+		if (!graph->data()->isEmpty())
 		{
-			const qint64 beginMs = static_cast<qint64>(series->at(0).x());
-			const qint64 endMs = static_cast<qint64>(series->at(series->count() - 1).x());
-			refreshTimeAxisIfNeeded(chart, beginMs, endMs, throttleAxis);
+			refreshTimeAxisIfNeeded(chart, graph->data()->firstKey(), graph->data()->lastKey(), throttleAxis);
 		}
 
 		return;
 	}
 
-	auto playerCurrentTime = player()->currentPosition();
-
-	auto axisStartTime = timeAxis->min();
-	auto axisEndTime = timeAxis->max();
-
-	QDateTime seriesStatTime;
-	QDateTime seriesEndTime;
-
-	if (series->count() > 0)
-	{
-		seriesStatTime = QDateTime::fromMSecsSinceEpoch(series->at(0).x());
-		seriesEndTime = QDateTime::fromMSecsSinceEpoch(series->at(series->count() - 1).x());
-	}
+	const QDateTime seriesStatTime = fromPlotKey(graph->data()->firstKey());
+	const QDateTime seriesEndTime = fromPlotKey(graph->data()->lastKey());
 
 	// Фильтруем данные, оставляя только те, что за пределами диапазона серии
 	QList<QDateTime> newTimes;
 	QList<QVariant> newValues;
-	
-	if (series->count() == 0)
-	{
-		newTimes = times;
-		newValues = values;
-	}
-	else
-	{
-		filterDataOutsideRange(times, values, seriesStatTime, seriesEndTime, isBackPlaying, newTimes, newValues);
-	}
+	filterDataOutsideRange(times, values, seriesStatTime, seriesEndTime, isBackPlaying, newTimes, newValues);
 
 	// Если нет новых данных для добавления
 	if (newTimes.isEmpty())
@@ -416,117 +414,84 @@ void ChatViewGridModel::updateSeries(const QString& label, ParameterTreeHistoryI
 		return;
 	}
 
-	// Добавляем отфильтрованные данные в серию
-	if (isBackPlaying)
+	// QCPDataMap хранит точки отсортированными по ключу, поэтому направление
+	// воспроизведения на порядок вставки не влияет
+	for (auto i = 0; i < newTimes.count(); i++)
 	{
-		for (auto i = 0; i < newTimes.count(); i++)
+		bool ok = false;
+		const double y = newValues[i].toDouble(&ok);
+		if (!ok)
 		{
-			bool ok = false;
-			const double y = newValues[i].toDouble(&ok);
-			if (!ok)
-			{
-				continue;
-			}
-			series->insert(0, QPointF(newTimes[i].toMSecsSinceEpoch(), y));
+			continue;
 		}
-	}
-	else
-	{
-		qint64 lastX = static_cast<qint64>(series->at(series->count() - 1).x());
-		for (auto i = 0; i < newTimes.count(); i++)
-		{
-			bool ok = false;
-			const double y = newValues[i].toDouble(&ok);
-			if (!ok)
-			{
-				continue;
-			}
 
-			const qint64 x = newTimes[i].toMSecsSinceEpoch();
-			if (x <= lastX)
-			{
-				continue;
-			}
-			series->append(x, y);
-			lastX = x;
+		const double key = toPlotKey(newTimes[i]);
+		if (graph->data()->contains(key))
+		{
+			continue;
 		}
+
+		graph->addData(key, y);
 	}
-	
+
 	// Удаление лишних точек (Trim)
-	qint64 intervalMs = minuteIntervalMsec();
 	if (isBackPlaying)
 	{
-		// Добавляли в начало, удаляем с конца
-		while (series->count() > 0)
-		{
-			qint64 first = (qint64)series->at(0).x();
-			qint64 last = (qint64)series->at(series->count() - 1).x();
-			
-			if (last - first > intervalMs)
-			{
-				series->remove(series->count() - 1);
-			}
-			else
-			{
-				break;
-			}
-		}
+		graph->removeDataAfter(graph->data()->firstKey() + visibleSpanSeconds());
 	}
 	else
 	{
-		// Добавляли в конец, удаляем с начала
-		while (series->count() > 0)
-		{
-			qint64 first = (qint64)series->at(0).x();
-			qint64 last = (qint64)series->at(series->count() - 1).x();
-			
-			if (last - first > intervalMs)
-			{
-				series->remove(0);
-			}
-			else
-			{
-				break;
-			}
-		}
+		graph->removeDataBefore(graph->data()->lastKey() - visibleSpanSeconds());
+	}
+
+	if (graph->data()->isEmpty())
+	{
+		return;
 	}
 
 	// Обновляем оси
-	if (series->count() > 0)
+	refreshTimeAxisIfNeeded(chart, graph->data()->firstKey(), graph->data()->lastKey(), throttleAxis);
+
+	// Ось значений расширяем по новым точкам: полный пересчёт по всей серии
+	// на каждом такте слишком дорог
+	double localMin = std::numeric_limits<double>::max();
+	double localMax = std::numeric_limits<double>::lowest();
+	bool hasNew = false;
+
+	for (const auto& v : newValues)
 	{
-		const qint64 beginTime = static_cast<qint64>(series->at(0).x());
-		const qint64 endTime = static_cast<qint64>(series->at(series->count() - 1).x());
-		refreshTimeAxisIfNeeded(chart, beginTime, endTime, throttleAxis);
-		
-		// Для оси значений нужно найти min/max среди всех точек (или только новых?)
-		// Лучше среди всех, так как диапазон мог сместиться
-		// Но это дорого для большого количества точек. 
-		// Оптимизация: при добавлении мы знаем новые значения. При удалении старых - сложнее.
-		// Пока оставим старую логику обновления ValueAxis, но она берет lastValue
-		// Обновим с учетом новых добавленных значений.
-		
-		// Упрощенно обновляем по последнему пришедшему (как было), или лучше по всей видимой серии?
-		// В оригинале:
-		// auto doubleValue = lastValue.toDouble();
-		// if (valueAxis->min() > doubleValue) ...
-		
-		// Обновим границы по новым данным
-		double localMin = std::numeric_limits<double>::max();
-		double localMax = std::numeric_limits<double>::min();
-		bool hasNew = false;
-		
-		for(const auto& v : newValues) 
+		bool ok = false;
+		const double d = v.toDouble(&ok);
+		if (!ok)
 		{
-			double d = v.toDouble();
-			if(d < localMin) localMin = d;
-			if(d > localMax) localMax = d;
-			hasNew = true;
+			continue;
 		}
-		
-		if(hasNew)
+
+		localMin = qMin(localMin, d);
+		localMax = qMax(localMax, d);
+		hasNew = true;
+	}
+
+	if (hasNew && valueAxis)
+	{
+		QCPRange range = valueAxis->range();
+		bool rangeChanged = false;
+
+		if (range.lower > localMin)
 		{
-			if (valueAxis->min() > localMin) valueAxis->setMin(localMin);
-			if (valueAxis->max() < localMax) valueAxis->setMax(localMax);
+			range.lower = localMin;
+			rangeChanged = true;
+		}
+
+		if (range.upper < localMax)
+		{
+			range.upper = localMax;
+			rangeChanged = true;
+		}
+
+		if (rangeChanged)
+		{
+			valueAxis->setRange(range);
 		}
 	}
 }
@@ -639,14 +604,13 @@ void ChatViewGridModel::removeSeries(const QString &label)
 	}
 }
 
-void ChatViewGridModel::moveSeriesToChart(int targetChartIndex, const QString& label, QtCharts::QLineSeries* series)
+void ChatViewGridModel::moveSeriesToChart(int targetChartIndex, const QString& label, QCustomPlot* plot, QCPGraph* graph)
 {
-	auto color = labelColor(label);
+	if (targetChartIndex < 0 || targetChartIndex >= m_charts.count()) return;
 
 	// add series to target chart
-	m_charts[targetChartIndex].seriesMap[label] = QPointer<QtCharts::QLineSeries>(series);
-
-	fillSeries(label, color, false);
+	m_charts[targetChartIndex].seriesMap[label] = QPointer<QCPGraph>(graph);
+	m_charts[targetChartIndex].plot = plot;
 
 	// remove moved series from chart
 	for (auto index = 0; index < m_charts.count(); index++)
@@ -763,9 +727,11 @@ QColor ChatViewGridModel::labelColor(QString label)
 {
 	auto chartIndex = findChartIndex(label);
 
-	if (chartIndex == -1) return QColor().black();
+	if (chartIndex == -1) return QColor(Qt::black);
 
-	return m_charts[chartIndex].seriesMap[label]->color();
+	auto graph = m_charts[chartIndex].seriesMap[label];
+
+	return graph ? graph->pen().color() : QColor(Qt::black);
 }
 
 void ChatViewGridModel::updateValueAxisRange(int chartIndex)
@@ -785,23 +751,23 @@ void ChatViewGridModel::updateValueAxisRange(int chartIndex)
 
 	if (chart.seriesMap.isEmpty())
 	{
-		valueAxis->setMin(0);
-		valueAxis->setMax(10);
+		valueAxis->setRange(0, 10);
+		replotChart(chart);
 		return;
 	}
 
 	double minValue = std::numeric_limits<double>::max();
-	double maxValue = std::numeric_limits<double>::min();
+	double maxValue = std::numeric_limits<double>::lowest();
 	bool hasPoints = false;
 
-	for (auto series : chart.seriesMap)
+	for (auto graph : chart.seriesMap)
 	{
-		if (series)
+		if (graph)
 		{
-			for (const auto& point : series->points())
+			for (const QCPData& point : *graph->data())
 			{
-				minValue = std::min(minValue, point.y());
-				maxValue = std::max(maxValue, point.y());
+				minValue = std::min(minValue, point.value);
+				maxValue = std::max(maxValue, point.value);
 				hasPoints = true;
 			}
 		}
@@ -810,22 +776,21 @@ void ChatViewGridModel::updateValueAxisRange(int chartIndex)
 	if (hasPoints)
 	{
 		auto range = maxValue - minValue;
-		if (qFuzzyCompare(range, 0.0))
+		if (qFuzzyIsNull(range))
 		{
-			valueAxis->setMin(minValue - 1);
-			valueAxis->setMax(maxValue + 1);
+			valueAxis->setRange(minValue - 1, maxValue + 1);
 		}
 		else
 		{
-			valueAxis->setMin(minValue - range * 0.1);
-			valueAxis->setMax(maxValue + range * 0.1);
+			valueAxis->setRange(minValue - range * 0.1, maxValue + range * 0.1);
 		}
 	}
 	else
 	{
-		valueAxis->setMin(0);
-		valueAxis->setMax(10);
+		valueAxis->setRange(0, 10);
 	}
+
+	replotChart(chart);
 }
 
 void ChatViewGridModel::mergeCharts()

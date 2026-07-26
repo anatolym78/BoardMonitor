@@ -9,11 +9,6 @@
 #include <QDebug>
 #include <algorithm>
 
-#include <QtCharts/QChart>
-#include <QtCharts/QLineSeries>
-#include <QtCharts/QValueAxis>
-#include <QtCharts/QDateTimeAxis>
-
 #include <QToolButton>
 
 #include <QToolButton>
@@ -97,55 +92,64 @@ void ChartsDashboardView::onParameterItemHovered(ParameterTreeHistoryItem* treeI
 {
 	for (auto chartView : chartViewList())
 	{
-		for (auto series : chartView->chart()->series())
+		for (auto graphIndex = 0; graphIndex < chartView->graphCount(); graphIndex++)
 		{
-			if (treeItem && (treeItem->fullName() == series->name()))
+			auto graph = chartView->graph(graphIndex);
+
+			if (treeItem && (treeItem->fullName() == graph->name()))
 			{
 				chartView->setHovered(true);
-				hoverSeries(series);
+				hoverSeries(graph);
 			}
 			else
 			{
 				chartView->setHovered(false); 
-				restoreSeriesColor(series);
+				restoreSeriesColor(graph);
 			}
 		}
 	}
 }
-void ChartsDashboardView::restoreSeriesColor(QtCharts::QAbstractSeries* series)
+void ChartsDashboardView::restoreSeriesColor(QCPAbstractPlottable* series)
 {
-	if (series->type() != QtCharts::QAbstractSeries::SeriesTypeLine) return;
+	auto graph = qobject_cast<QCPGraph*>(series);
+	if (!graph) return;
 
-	auto lineSeries = (QtCharts::QLineSeries*)(series);
+	auto seriesPen = graph->pen();
 
 	if (m_seriesColors.contains(series))
 	{
-		lineSeries->setColor(m_seriesColors[series]);
+		seriesPen.setColor(m_seriesColors[series]);
 	}
 
-	auto seriesPen = lineSeries->pen();
 	seriesPen.setStyle(Qt::PenStyle::SolidLine);
 
-	lineSeries->setPen(seriesPen);
+	graph->setPen(seriesPen);
+
+	if (graph->parentPlot())
+	{
+		graph->parentPlot()->replot(QCustomPlot::rpQueued);
+	}
 }
 
-void ChartsDashboardView::hoverSeries(QtCharts::QAbstractSeries* series)
+void ChartsDashboardView::hoverSeries(QCPAbstractPlottable* series)
 {
-	if (series->type() != QtCharts::QAbstractSeries::SeriesTypeLine) return;
-	
-	auto lineSeries = (QtCharts::QLineSeries*)(series);
+	auto graph = qobject_cast<QCPGraph*>(series);
+	if (!graph) return;
 
 	if (!m_seriesColors.contains(series))
 	{
-		m_seriesColors.insert(series, lineSeries->color());
+		m_seriesColors.insert(series, graph->pen().color());
 	}
 
-	//lineSeries->setColor(QColor(225, 192, 0));
-
-	auto seriesPen = lineSeries->pen();
+	auto seriesPen = graph->pen();
 	seriesPen.setStyle(Qt::PenStyle::DashLine);
 
-	lineSeries->setPen(seriesPen);
+	graph->setPen(seriesPen);
+
+	if (graph->parentPlot())
+	{
+		graph->parentPlot()->replot(QCustomPlot::rpQueued);
+	}
 }
 
 void ChartsDashboardView::onAddChart(int chartIndex, ParameterTreeItem* parameter)
@@ -160,46 +164,54 @@ void ChartsDashboardView::onAddChart(int chartIndex, ParameterTreeItem* paramete
 	// create chart
 	auto chartView = new ParametersChartView(chartIndex, row, column, this);
 	chartView->setModel(m_chartsModel);
-	chartView->setRenderHint(QPainter::Antialiasing, true);
-	auto chart = new QtCharts::QChart();
-	chart->setAnimationOptions(QtCharts::QChart::NoAnimation);
-	chart->setBackgroundBrush(QBrush());
-	chartView->setChart(chart);
 	m_gridLayout->addWidget(chartView, row, column);
-	chart->legend()->setVisible(false);
+	chartView->legend->setVisible(false);
+
+	connect(chartView, &ParametersChartView::graphHovered, this, [this](QCPGraph* graph, bool state)
+		{
+			if (state)
+			{
+				hoverSeries(graph);
+			}
+			else
+			{
+				restoreSeriesColor(graph);
+			}
+		});
 
 	// create timeaxis
-	auto timeAxis = new QtCharts::QDateTimeAxis(chart);
-	timeAxis->setFormat("hh:mm:ss");
-	timeAxis->setTickCount(3);
-	chart->addAxis(timeAxis, Qt::AlignBottom);
+	auto timeAxis = chartView->xAxis;
+	timeAxis->setTickLabelType(QCPAxis::ltDateTime);
+	timeAxis->setDateTimeFormat("hh:mm:ss");
+	timeAxis->setDateTimeSpec(Qt::LocalTime);
+	timeAxis->setAutoTickCount(3);
 
 	//create value axis
-	auto valueAxis = new QtCharts::QValueAxis(chart);
-	valueAxis->setTickCount(3);
-	valueAxis->setMin(0);
-	valueAxis->setMax(1);
-	chart->addAxis(valueAxis, Qt::AlignLeft);
-
+	auto valueAxis = chartView->yAxis;
+	valueAxis->setAutoTickCount(3);
+	valueAxis->setRange(0, 1);
 
 	// create series
 	if (parameter->type() == ParameterTreeItem::ItemType::History)
 	{
-		addSeriesToChart(chartIndex, chart, parameter);
+		addSeriesToChart(chartIndex, chartView, parameter);
 	}
 
 	if (parameter->type() == ParameterTreeItem::ItemType::Array
 		|| parameter->type() == ParameterTreeItem::ItemType::Group)
 	{
-		chart->setTitle(parameterFullName);
-		addHistoryDescendantsToChart(chartIndex, chart, parameter);
+		chartView->plotLayout()->insertRow(0);
+		chartView->plotLayout()->addElement(0, 0, new QCPPlotTitle(chartView, parameterFullName));
+		addHistoryDescendantsToChart(chartIndex, chartView, parameter);
 	}
+
+	chartView->replot(QCustomPlot::rpQueued);
 
 	// После добавления - пересчитать размеры ячеек, чтобы они вписались по ширине и имели квадратную форму
 	updateCellSizes();
 }
 
-void ChartsDashboardView::addHistoryDescendantsToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* item)
+void ChartsDashboardView::addHistoryDescendantsToChart(int chartIndex, ParametersChartView* chartView, ParameterTreeItem* item)
 {
 	if (!item)
 	{
@@ -208,33 +220,28 @@ void ChartsDashboardView::addHistoryDescendantsToChart(int chartIndex, QtCharts:
 
 	if (item->type() == ParameterTreeItem::ItemType::History)
 	{
-		addSeriesToChart(chartIndex, chart, item);
+		addSeriesToChart(chartIndex, chartView, item);
 		return;
 	}
 
 	for (ParameterTreeItem* child : item->children())
 	{
-		addHistoryDescendantsToChart(chartIndex, chart, child);
+		addHistoryDescendantsToChart(chartIndex, chartView, child);
 	}
 }
 
-void ChartsDashboardView::addSeriesToChart(int chartIndex, QtCharts::QChart* chart, ParameterTreeItem* parameter)
+void ChartsDashboardView::addSeriesToChart(int chartIndex, ParametersChartView* chartView, ParameterTreeItem* parameter)
 {
 	if (!parameter || m_chartsModel->hasSeries(parameter->fullName()))
 	{
 		return;
 	}
 
-	auto timeAxis = (QtCharts::QDateTimeAxis*)chart->axisX();
-	auto valueAxis = (QtCharts::QValueAxis*)chart->axisY();
+	auto graph = chartView->addGraph(chartView->xAxis, chartView->yAxis);
 
-	auto series = new QtCharts::QLineSeries();
-	chart->addSeries(series);
-	series->attachAxis(timeAxis);
-	series->attachAxis(valueAxis);
-
-	auto seriesPen = series->pen();
+	auto seriesPen = graph->pen();
 	seriesPen.setCapStyle(Qt::PenCapStyle::RoundCap);
+	graph->setPen(seriesPen);
 
 	auto color = parameter->color();
 
@@ -242,21 +249,10 @@ void ChartsDashboardView::addSeriesToChart(int chartIndex, QtCharts::QChart* cha
 		chartIndex,
 		parameter->fullName(),
 		color,
-		series,
-		timeAxis,
-		valueAxis);
-
-	connect(series, &QtCharts::QLineSeries::hovered, this, [this, series](const QPointF& point, bool state)
-		{
-			if (state)
-			{
-				hoverSeries(series);
-			}
-			else
-			{
-				restoreSeriesColor(series);
-			}
-		});
+		chartView,
+		graph,
+		chartView->xAxis,
+		chartView->yAxis);
 }
 
 void ChartsDashboardView::onParameterRemoved(int chartIndex, const QString& label)
@@ -267,26 +263,25 @@ void ChartsDashboardView::onParameterRemoved(int chartIndex, const QString& labe
 		return;
 	}
 
-	auto chart = chartView->chart();
-	if (!chart)
+	for (auto graphIndex = 0; graphIndex < chartView->graphCount(); graphIndex++)
 	{
-		return;
-	}
-
-	for (auto series : chart->series())
-	{
-		if (series->name() == label)
+		auto graph = chartView->graph(graphIndex);
+		if (graph->name() == label)
 		{
-			chart->removeSeries(series);
-			series->deleteLater();
+			m_seriesColors.remove(graph);
+			chartView->removeGraph(graph);
 			break;
 		}
 	}
 
-	if (chart->series().isEmpty())
+	if (chartView->graphCount() == 0)
 	{
 		m_gridLayout->removeWidget(chartView);
 		chartView->deleteLater();
+	}
+	else
+	{
+		chartView->replot(QCustomPlot::rpQueued);
 	}
 
 	updateCellSizes();
@@ -296,9 +291,6 @@ void ChartsDashboardView::onParameterMoved(int targetChartIndex, const QStringLi
 {
 	auto targetChartView = getChartView(targetChartIndex);
 	if (!targetChartView) return;
-
-	auto targetChart = targetChartView->chart();
-	if (!targetChart) return;
 
 	const QSet<QString> labelsSet = QSet<QString>(labels.begin(), labels.end());
 
@@ -310,30 +302,36 @@ void ChartsDashboardView::onParameterMoved(int targetChartIndex, const QStringLi
 			auto sourceView = qobject_cast<ParametersChartView*>(item->widget());
 			if (!sourceView || sourceView == targetChartView) continue;
 
-			auto sourceChart = sourceView->chart();
-			if (!sourceChart) continue;
-
 			// Копируем список, чтобы безопасно модифицировать исходный график
-			const auto sourceSeriesList = sourceChart->series();
-			bool anyMovedFromSource = false;
-			for (auto series : sourceSeriesList)
+			QList<QCPGraph*> graphsToMove;
+			for (auto graphIndex = 0; graphIndex < sourceView->graphCount(); graphIndex++)
 			{
-				if (!series) continue;
-				if (!labelsSet.contains(series->name())) continue;
+				auto sourceGraph = sourceView->graph(graphIndex);
+				if (!sourceGraph) continue;
+				if (!labelsSet.contains(sourceGraph->name())) continue;
 
-				// Сначала удаляем из исходного графика
-				sourceChart->removeSeries(series);
-				// Затем добавляем в целевой график
-				targetChart->addSeries(series);
-				// Подключаем оси целевого графика
-				if (targetChart->axisX()) series->attachAxis(targetChart->axisX());
-				if (targetChart->axisY()) series->attachAxis(targetChart->axisY());
+				graphsToMove.append(sourceGraph);
+			}
 
-				anyMovedFromSource = true;
+			// QCPGraph принадлежит своему QCustomPlot и переносу не подлежит,
+			// поэтому в целевом графике создаётся новая серия с копией данных
+			for (auto sourceGraph : graphsToMove)
+			{
+				const auto label = sourceGraph->name();
+
+				auto targetGraph = targetChartView->addGraph(targetChartView->xAxis, targetChartView->yAxis);
+				targetGraph->setName(label);
+				targetGraph->setPen(sourceGraph->pen());
+				targetGraph->addData(*sourceGraph->data());
+
+				m_chartsModel->moveSeriesToChart(targetChartIndex, label, targetChartView, targetGraph);
+
+				m_seriesColors.remove(sourceGraph);
+				sourceView->removeGraph(sourceGraph);
 			}
 
 			// Если исходный график опустел — удаляем виджет
-			if (anyMovedFromSource && sourceChart->series().isEmpty())
+			if (!graphsToMove.isEmpty() && sourceView->graphCount() == 0)
 			{
 				m_gridLayout->removeWidget(sourceView);
 				sourceView->deleteLater();
@@ -342,6 +340,7 @@ void ChartsDashboardView::onParameterMoved(int targetChartIndex, const QStringLi
 	}
 
 	targetChartView->setSelected(false);
+	targetChartView->replot(QCustomPlot::rpQueued);
 	updateCellSizes();
 }
 
