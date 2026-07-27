@@ -20,6 +20,14 @@ void TelemetryIngestWorker::initialize()
     m_parser = new ParameterTreeJsonParser();
 }
 
+void TelemetryIngestWorker::resetClock()
+{
+    if (m_parser)
+    {
+        m_parser->resetBoardClock();
+    }
+}
+
 void TelemetryIngestWorker::acceptPacket(const QString& json, const QDateTime& arrivalTimestamp)
 {
     if (!m_parser)

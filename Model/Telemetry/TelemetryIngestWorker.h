@@ -19,6 +19,7 @@ public:
 public slots:
     void initialize();
     void acceptPacket(const QString& json, const QDateTime& arrivalTimestamp);
+    void resetClock();
 
 signals:
     void snapshotReady(ParameterTreeStorage* snapshot);

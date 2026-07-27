@@ -23,8 +23,8 @@ void JSONParameterSerializer::Packager::operator()(
 void JSONParameterSerializer::Packager::operator()(
     boost::json::array& container, ParameterType /*type*/, const data::Timestamp& timestamp) {
     boost::json::object object;
-    object["label"] = "timeStamp";
-    object["value"] = timestamp.us;
+    object["label"] = "timeStamp_ms";
+    object["value"] = timestamp.ms;
 
     container.push_back(std::move(object));
 }

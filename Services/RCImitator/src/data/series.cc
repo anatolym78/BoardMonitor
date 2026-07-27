@@ -18,7 +18,7 @@ namespace radio::data
 
 	void Series::operator()(Timestamp& timestamp)
 	{
-		timestamp.us = _us_timestamp;
+		timestamp.ms = static_cast<int32_t>(_us_timestamp / 1000);
 	}
 
 	void Series::operator()(FlightMode& flight_mode)

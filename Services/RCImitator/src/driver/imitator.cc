@@ -37,6 +37,7 @@ void DriverImitator::start() {
     state_ = State::kConnected;
     emitStateChanged(state_);
 
+    board_clock_.start();
     loop_timer_->start(10);
 }
 
@@ -88,7 +89,8 @@ void DriverImitator::onLoopTimerTimeout() {
             counters_.send = 0;
 
             //auto params = data::ParameterGenerator::generate(10);
-			auto params = data::ParameterSeriesGenerator::generate(10);
+			auto params = data::ParameterSeriesGenerator::generate(
+				10, board_clock_.nsecsElapsed() / 1000);
             emitDataAvailable(QString::fromStdString(
                 data::JSONParameterSerializer::serialize(params)));
 

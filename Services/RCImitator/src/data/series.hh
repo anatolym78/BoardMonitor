@@ -13,7 +13,7 @@ namespace radio
 			SinusFunction(float amplitude, float period, float phase, float offset = 0) :
 				amplitude_(amplitude), period_in_sec_(period), phase_(phase), offset_(offset) {}
 
-			float operator()(uint32_t us)
+			float operator()(int64_t us)
 			{
 				auto period = period_in_sec_ * 1000000;
 				return amplitude_ * std::sin(6.28318530717958647692f * (us / period) + phase_) + offset_;
@@ -45,14 +45,14 @@ namespace radio
 		class Series
 		{
 		private:
-			uint32_t _us_timestamp = 0;
+			int64_t _us_timestamp = 0;
 			SinusFunction angle_roll_func = SinusFunction(10, 5, 0);
 			SinusFunction angle_pitch_func = SinusFunction(20, 10, 1.57079632679f); 
 			SinusFunction angle_yaw_func = SinusFunction(30, 20, 3.14159265359f);
 			SinusFunction ground_speed_func =  SinusFunction(10, 18, 0);
 			SinusFunction voltage_func =  SinusFunction(2, 5, 0, 12);
 			//SinusFunction throttle_func = SinusFunction(100, 20, 0); 
-			SinusFunction throttle_func = SinusFunction(100, 100, 0, 100);
+			SinusFunction throttle_func = SinusFunction(100, 20, 0, 100);
 			SinusFunction adjustments_one_func = SinusFunction(25, 5, 0, 300);
 			SinusFunction adjustments_two_func = SinusFunction(30, 5, 1.57079632679f, 300);
 			SinusFunction adjustments_three_func = SinusFunction(20, 5, 3.0f, 300);
@@ -72,7 +72,12 @@ namespace radio
 
 		public:
 			Series() = default;
-			uint32_t next() { return _us_timestamp += 100000; }
+
+			/**
+			 * @brief Set the board clock to the real elapsed time since start
+			 * @param us Elapsed time in us
+			 */
+			void setElapsedUs(int64_t us) { _us_timestamp = us; }
 
 			void operator()(data::Protocol& protocol);
 

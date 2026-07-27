@@ -19,8 +19,9 @@ namespace radio
 			/**
 			 * @brief Generate list of parameters with series data
 			 * @param number Number of parameters
+			 * @param elapsed_us Board clock value in us since start
 			 */
-			static std::vector<Parameter> generate(int number);
+			static std::vector<Parameter> generate(int number, int64_t elapsed_us);
 
 		private:
 			inline static Series series_;

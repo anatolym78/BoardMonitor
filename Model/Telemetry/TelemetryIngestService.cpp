@@ -79,4 +79,9 @@ void TelemetryIngestService::enqueue(const QString& json)
 void TelemetryIngestService::resetSessionClock()
 {
     m_lastTimestamp = QDateTime();
+
+    if (m_worker)
+    {
+        QMetaObject::invokeMethod(m_worker, "resetClock", Qt::QueuedConnection);
+    }
 }

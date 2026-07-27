@@ -3,6 +3,7 @@
 #include <atomic>
 #include <mutex>
 
+#include <QElapsedTimer>
 #include <QString>
 #include <QTimer>
 
@@ -57,6 +58,8 @@ private slots:
 
 private:
     QTimer* loop_timer_ = nullptr;
+    /** Бортовые часы: реальное время от запуска драйвера. */
+    QElapsedTimer board_clock_;
     std::atomic<State> state_ = State::kDisconnected;
 
     int send_delay_ = 0;

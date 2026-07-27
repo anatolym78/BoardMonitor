@@ -12,9 +12,104 @@
 #include <QTextStream>
 #include <QFile>
 
+namespace
+{
+
+/** Метка времени борта в пакете телеметрии. */
+const QLatin1String kBoardTimestampLabel("timeStamp_ms");
+
+/** Полный оборот 32-разрядного счётчика. */
+constexpr qint64 kInt32Span = 4294967296LL;
+
+/** Порог, отличающий переход счётчика через ноль от перезапуска борта. */
+constexpr qint64 kWrapGuardMs = 1073741824LL;
+
+} // namespace
+
 ParameterTreeJsonParser::ParameterTreeJsonParser(QObject *parent)
     : QObject(parent)
 {
+}
+
+void ParameterTreeJsonParser::resetBoardClock()
+{
+    m_boardClockAnchored = false;
+    m_boardWrapOffsetMs = 0;
+}
+
+bool ParameterTreeJsonParser::extractBoardTimestampMs(const QJsonObject &obj, qint64 &boardMs) const
+{
+    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it)
+    {
+        if (!it.value().isArray())
+        {
+            continue;
+        }
+
+        const QJsonArray items = it.value().toArray();
+        for (const QJsonValue &elem : items)
+        {
+            if (!elem.isObject())
+            {
+                continue;
+            }
+
+            const QJsonObject itemObj = elem.toObject();
+            if (itemObj.value("label").toString() != kBoardTimestampLabel)
+            {
+                continue;
+            }
+
+            const QJsonValue value = itemObj.value("value");
+            if (!value.isDouble())
+            {
+                continue;
+            }
+
+            boardMs = static_cast<qint64>(value.toDouble());
+            return true;
+        }
+    }
+
+    return false;
+}
+
+QDateTime ParameterTreeJsonParser::resolveSnapshotTime(qint64 rawBoardMs, const QDateTime &arrivalTimestamp)
+{
+    if (!m_boardClockAnchored)
+    {
+        m_boardClockAnchored = true;
+        m_boardWallAnchor = arrivalTimestamp;
+        m_boardAnchorMs = rawBoardMs;
+        m_lastRawBoardMs = rawBoardMs;
+        m_boardWrapOffsetMs = 0;
+
+        return arrivalTimestamp;
+    }
+
+    if (rawBoardMs < m_lastRawBoardMs)
+    {
+        // Счётчик int32 уходит с максимума на минимум. Всё остальное убывание
+        // трактуем как перезапуск борта и привязываемся заново
+        const bool wrapped = m_lastRawBoardMs > kWrapGuardMs && rawBoardMs < -kWrapGuardMs;
+        if (wrapped)
+        {
+            m_boardWrapOffsetMs += kInt32Span;
+        }
+        else
+        {
+            m_boardWallAnchor = arrivalTimestamp;
+            m_boardAnchorMs = rawBoardMs;
+            m_boardWrapOffsetMs = 0;
+            m_lastRawBoardMs = rawBoardMs;
+
+            return arrivalTimestamp;
+        }
+    }
+
+    m_lastRawBoardMs = rawBoardMs;
+
+    return m_boardWallAnchor.addMSecs(rawBoardMs + m_boardWrapOffsetMs - m_boardAnchorMs);
 }
 
 ParameterTreeStorage* ParameterTreeJsonParser::parseJson(const QString &jsonString)
@@ -99,19 +194,14 @@ QString ParameterTreeJsonParser::toBoardJson(ParameterTreeStorage* root)
 void ParameterTreeJsonParser::updateJson(const QString &jsonString, ParameterTreeStorage *root)
 {
     m_lastError.clear();
-    m_snapshotTimestamp = QDateTime::currentDateTime();
+
+    if (!m_snapshotTimestamp.isValid())
+    {
+        m_snapshotTimestamp = QDateTime::currentDateTime();
+    }
 
 	QJsonParseError parseError;
 	QJsonDocument doc = QJsonDocument::fromJson(jsonString.toUtf8(), &parseError);
-
-    QFile file("parameters.json");
-    if (file.open(QFile::WriteOnly))
-    {
-        QTextStream textStream(&file);
-        textStream << doc.toJson(QJsonDocument::Indented);
-
-        file.close();
-    }
 
     if (parseError.error != QJsonParseError::NoError)
     {
@@ -122,6 +212,14 @@ void ParameterTreeJsonParser::updateJson(const QString &jsonString, ParameterTre
     if (doc.isObject())
     {
         const QJsonObject obj = doc.object();
+
+        // Время снимка берём из метки борта: она не зависит ни от задержек интерфейса,
+        // ни от момента доставки пакета. Время приёма остаётся запасным вариантом
+        qint64 boardMs = 0;
+        if (extractBoardTimestampMs(obj, boardMs))
+        {
+            m_snapshotTimestamp = resolveSnapshotTime(boardMs, m_snapshotTimestamp);
+        }
 
         // Формат с полем "Parameters" (как раньше)
         if (obj.contains("Parameters") && obj["Parameters"].isArray())

@@ -26,7 +26,7 @@ public:
             std::numeric_limits<int32_t>::min(),
             std::numeric_limits<int32_t>::max());
 
-        timestamp.us = value_dist(gen_);
+        timestamp.ms = value_dist(gen_);
     }
 
     void operator()(data::ArmingFlag& arming_flag) {

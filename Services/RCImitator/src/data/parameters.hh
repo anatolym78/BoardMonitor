@@ -54,10 +54,10 @@ struct Protocol {
 };
 
 /**
- * @brief Hardware timer timestamp in us
+ * @brief Hardware timer timestamp in ms since board power-on
  */
 struct Timestamp {
-    uint32_t us = 0;
+    int32_t ms = 0;
 
     auto operator<=>(const Timestamp& other) const = default;
 };

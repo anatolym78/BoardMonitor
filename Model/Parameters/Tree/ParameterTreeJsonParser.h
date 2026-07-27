@@ -28,7 +28,13 @@ public:
 
     QString getLastError() const;
 
+    /** Сбрасывает привязку бортовых часов к настенному времени: вызывать при старте новой сессии. */
+    void resetBoardClock();
+
 private:
+    bool extractBoardTimestampMs(const QJsonObject &obj, qint64 &boardMs) const;
+    QDateTime resolveSnapshotTime(qint64 rawBoardMs, const QDateTime &arrivalTimestamp);
+
     void processJsonObject(const QJsonObject &jsonObject, ParameterTreeItem *parent);
     void updateJsonFromGroupedObject(const QJsonObject &obj, ParameterTreeStorage *root);
     void processValue(const QString &key, const QJsonValue &value, ParameterTreeItem *parent, 
@@ -42,6 +48,13 @@ private:
 
     QString m_lastError;
     QDateTime m_snapshotTimestamp;
+
+    // Привязка бортового счётчика (int32, миллисекунды от включения борта) к настенному времени
+    bool m_boardClockAnchored = false;
+    QDateTime m_boardWallAnchor;
+    qint64 m_boardAnchorMs = 0;
+    qint64 m_lastRawBoardMs = 0;
+    qint64 m_boardWrapOffsetMs = 0;
 };
 
 #endif // PARAMETERTREEJSONPARSER_H
