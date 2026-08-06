@@ -7,10 +7,13 @@
 #include <QStackedWidget>
 #include "Interface/Session/SessionStackView.h"
 #include "Interface/Session/SessionListView.h"
+#include "Model/AppSettings.h"
 
 class BoardStationApp;
 class ChartBuilder;
 class QActionGroup;
+class QMenu;
+class SessionWorkspace;
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -46,10 +49,17 @@ private:
 private:
     void onCheckBoxSetDataImmediately(int state);
     void setupPluginsMenu();
+    void setupPlayerSettingsMenu(QMenu* settingsMenu);
     void syncPluginsMenuSelection(const QString& pluginName);
+    void syncPlayerScrubMenuSelection(AppSettings::PlayerScrubMode mode);
+    void syncPlayerTimeDisplayMenuSelection(AppSettings::PlayerTimeDisplayMode mode);
+    void applyPlayerSettingsToAllViews();
+    void applyPlayerSettingsToWorkspace(SessionWorkspace* workspace);
 
 private:
     QActionGroup* m_pluginsActionGroup = nullptr;
+    QActionGroup* m_playerScrubActionGroup = nullptr;
+    QActionGroup* m_playerTimeDisplayActionGroup = nullptr;
 };
 
 #endif // MAINWINDOW_H

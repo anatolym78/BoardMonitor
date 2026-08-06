@@ -27,6 +27,8 @@ PlaybackView::PlaybackView(QWidget *parent)
 	m_positionSlider = new QSlider(Qt::Horizontal, this);
 	m_positionSlider->setMinimum(0);
 	m_positionSlider->setMaximum(100);
+	m_positionSlider->setSingleStep(1);
+	m_positionSlider->setPageStep(1);
 
 	m_infoLabel = new QLabel(this);
 	auto font = QFont();
@@ -50,11 +52,12 @@ PlaybackView::PlaybackView(QWidget *parent)
 
 	connect(m_positionSlider, &QSlider::sliderMoved, this, [this](int value)
 	{
+		const double elapsedSeconds = sliderToSeconds(value);
 		if (m_player)
 		{
-			m_player->setElapsedTime(static_cast<double>(value));
+			m_player->setElapsedTime(elapsedSeconds);
 		}
-		updateInfoLabel(value, m_player ? m_player->sessionDuration() : 0.0);
+		updateInfoLabel(elapsedSeconds, m_player ? m_player->sessionDuration() : 0.0);
 	});
 }
 
@@ -70,6 +73,119 @@ void PlaybackView::onPlayButtonToggled()
 		m_playPauseButton->setIcon(QIcon(":/Resources/icons8-play-32.png"));
 		m_playPauseButton->setToolTip(tr("Play"));
 	}
+}
+
+void PlaybackView::setScrubMode(AppSettings::PlayerScrubMode mode)
+{
+	if (m_scrubMode == mode)
+	{
+		return;
+	}
+
+	m_scrubMode = mode;
+	updateSliderRange();
+}
+
+void PlaybackView::setTimeDisplayMode(AppSettings::PlayerTimeDisplayMode mode)
+{
+	if (m_timeDisplayMode == mode)
+	{
+		return;
+	}
+
+	m_timeDisplayMode = mode;
+
+	const double elapsed = m_player ? m_player->elapsedTime() : 0.0;
+	const double duration = m_player ? m_player->sessionDuration() : 0.0;
+	updateInfoLabel(elapsed, duration);
+}
+
+void PlaybackView::updateSliderRange()
+{
+	const double duration = m_player ? m_player->sessionDuration() : 0.0;
+	const double elapsed = m_player ? m_player->elapsedTime() : 0.0;
+
+	if (m_scrubMode == AppSettings::PlayerScrubMode::Continuous)
+	{
+		// 1 единица слайдера = 1 мс: движение мыши даёт почти непрерывную перемотку
+		m_positionSlider->setMaximum(qMax(0, secondsToSlider(duration)));
+		m_positionSlider->setSingleStep(1);
+		m_positionSlider->setPageStep(1000);
+	}
+	else
+	{
+		// Историческое поведение: диапазон в целых секундах
+		m_positionSlider->setMaximum(qMax(0, secondsToSlider(duration)));
+		m_positionSlider->setSingleStep(1);
+		m_positionSlider->setPageStep(1);
+	}
+
+	if (!m_positionSlider->isSliderDown())
+	{
+		m_positionSlider->setValue(secondsToSlider(elapsed));
+	}
+
+	updateInfoLabel(elapsed, duration);
+}
+
+int PlaybackView::secondsToSlider(double seconds) const
+{
+	if (m_scrubMode == AppSettings::PlayerScrubMode::Continuous)
+	{
+		return static_cast<int>(seconds * 1000.0 + (seconds >= 0.0 ? 0.5 : -0.5));
+	}
+
+	return static_cast<int>(seconds);
+}
+
+double PlaybackView::sliderToSeconds(int value) const
+{
+	if (m_scrubMode == AppSettings::PlayerScrubMode::Continuous)
+	{
+		return static_cast<double>(value) / 1000.0;
+	}
+
+	return static_cast<double>(value);
+}
+
+QString PlaybackView::formatDuration(double seconds) const
+{
+	// Длительность и конец записи — без долей секунды, иначе метка перегружена
+	return QTime(0, 0).addSecs(static_cast<int>(seconds)).toString("mm:ss");
+}
+
+QString PlaybackView::formatAbsoluteTime(const QDateTime& time) const
+{
+	if (!time.isValid())
+	{
+		return QStringLiteral("00:00:00");
+	}
+
+	return time.toString("hh:mm:ss");
+}
+
+QString PlaybackView::formatPosition(double elapsedSeconds) const
+{
+	const bool showFraction = (m_scrubMode == AppSettings::PlayerScrubMode::Continuous);
+
+	if (m_timeDisplayMode == AppSettings::PlayerTimeDisplayMode::Real
+		&& m_player
+		&& m_player->sessionStartTime().isValid())
+	{
+		const QDateTime absolute = m_player->sessionStartTime().addMSecs(
+			static_cast<qint64>(elapsedSeconds * 1000.0));
+
+		return showFraction
+			? absolute.toString("hh:mm:ss.zzz")
+			: absolute.toString("hh:mm:ss");
+	}
+
+	if (showFraction)
+	{
+		return QTime(0, 0).addMSecs(static_cast<int>(elapsedSeconds * 1000.0)).toString("mm:ss.zzz");
+	}
+
+	return formatDuration(elapsedSeconds);
 }
 
 void PlaybackView::setPlayer(DataPlayer* player)
@@ -90,11 +206,9 @@ void PlaybackView::setPlayer(DataPlayer* player)
 	}
 
 	// Начальная инициализация состояния
-	m_positionSlider->setMaximum(static_cast<int>(m_player->sessionDuration()));
-	m_positionSlider->setValue(static_cast<int>(m_player->elapsedTime()));
+	updateSliderRange();
 	m_playPauseButton->setChecked(m_player->isPlaying());
 	onPlayButtonToggled();
-	updateInfoLabel(m_player->elapsedTime(), m_player->sessionDuration());
 
 	// Управление воспроизведением с кнопки
 	connect(m_playPauseButton, &QToolButton::toggled, this, [this](bool checked)
@@ -119,17 +233,27 @@ void PlaybackView::setPlayer(DataPlayer* player)
 	connect(m_player, &DataPlayer::sessionDurationChanged, this, [this]()
 	{
 		if (!m_player) return;
-		m_positionSlider->setMaximum(static_cast<int>(m_player->sessionDuration()));
+		updateSliderRange();
+	});
+
+	connect(m_player, &DataPlayer::sessionStartTimeChanged, this, [this]()
+	{
+		if (!m_player) return;
+		updateInfoLabel(m_player->elapsedTime(), m_player->sessionDuration());
+	});
+
+	connect(m_player, &DataPlayer::sessionEndTimeChanged, this, [this]()
+	{
+		if (!m_player) return;
 		updateInfoLabel(m_player->elapsedTime(), m_player->sessionDuration());
 	});
 
 	connect(m_player, &DataPlayer::elapsedTimeChanged, this, [this]()
 	{
 		if (!m_player) return;
-		const int elapsed = static_cast<int>(m_player->elapsedTime());
 		if (!m_positionSlider->isSliderDown())
 		{
-			m_positionSlider->setValue(elapsed);
+			m_positionSlider->setValue(secondsToSlider(m_player->elapsedTime()));
 		}
 		updateInfoLabel(m_player->elapsedTime(), m_player->sessionDuration());
 	});
@@ -138,14 +262,24 @@ void PlaybackView::setPlayer(DataPlayer* player)
 void PlaybackView::refreshFromPlayer()
 {
 	if (!m_player) return;
-	m_positionSlider->setMaximum(static_cast<int>(m_player->sessionDuration()));
-	m_positionSlider->setValue(static_cast<int>(m_player->elapsedTime()));
-	updateInfoLabel(m_player->elapsedTime(), m_player->sessionDuration());
+	updateSliderRange();
 }
 
 void PlaybackView::updateInfoLabel(double elapsedSeconds, double durationSeconds)
 {
-	const QTime elapsed = QTime(0,0).addSecs(static_cast<int>(elapsedSeconds));
-	const QTime duration = QTime(0,0).addSecs(static_cast<int>(durationSeconds));
-	m_infoLabel->setText(QString("%1 / %2").arg(elapsed.toString("mm:ss")).arg(duration.toString("mm:ss")));
+	if (m_timeDisplayMode == AppSettings::PlayerTimeDisplayMode::Real
+		&& m_player
+		&& m_player->sessionEndTime().isValid())
+	{
+		// Текущее / конечное реальное время, длительность записи в скобках
+		m_infoLabel->setText(QString("%1 / %2 (%3)")
+			.arg(formatPosition(elapsedSeconds))
+			.arg(formatAbsoluteTime(m_player->sessionEndTime()))
+			.arg(formatDuration(durationSeconds)));
+		return;
+	}
+
+	m_infoLabel->setText(QString("%1 / %2")
+		.arg(formatPosition(elapsedSeconds))
+		.arg(formatDuration(durationSeconds)));
 }

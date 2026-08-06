@@ -21,6 +21,8 @@
 
 #include "./Model/Parameters/AppConfigurationReader.h"
 
+#include "./Model/AppSettings.h"
+
 #include "./Services/RCImitator/src/driver.hh"
 #include "./Services/RCImitator/src/builder.hh"
 
@@ -64,6 +66,9 @@ public:
 	
 	DriverAdapter* getDriverAdapter() const { return m_driverAdapter; }
 
+	AppSettings& settings() { return m_settings; }
+	const AppSettings& settings() const { return m_settings; }
+
 	LiveSession* liveSession() const { return m_sessionsListModel->liveSession(); }
 
 private slots:
@@ -73,6 +78,7 @@ private:
 	std::unique_ptr<radio::IDriverBuilder> m_driverBuilder;
 	boost::dll::shared_library m_rcImitatorPluginLibrary;
 	std::shared_ptr<radio::IDriver> m_driverHolder;
+	AppSettings m_settings;
 	DriverAdapter *m_driverAdapter;
 	TelemetryIngestService* m_telemetryIngestService = nullptr;
 	SessionsListModel *m_sessionsListModel;

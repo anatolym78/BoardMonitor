@@ -107,7 +107,7 @@ void DataPlayer::setPosition(QDateTime position)
 
 void DataPlayer::setElapsedTime(double position)
 {
-	setPosition(m_sessionStartTime.addSecs(position));
+	setPosition(m_sessionStartTime.addMSecs(static_cast<qint64>(position * 1000.0)));
 }
 
 void DataPlayer::moveToBegin()

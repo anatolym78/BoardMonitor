@@ -34,7 +34,13 @@ BoardStationApp::BoardStationApp(int &argc, char **argv)
 	m_telemetryIngestService = new TelemetryIngestService(this);
 	m_telemetryIngestService->start();
 
-	m_driverAdapter = new DriverAdapter(this);
+	if (!m_settings.load())
+	{
+		qCritical() << "BoardStationApp: failed to load settings from"
+		            << AppSettings::settingsFilePath();
+	}
+
+	m_driverAdapter = new DriverAdapter(&m_settings, this);
 	m_driverAdapter->setIngestService(m_telemetryIngestService);
 			 
 	setupUplinkParameters();

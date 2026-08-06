@@ -13,6 +13,50 @@ QString AppSettings::settingsFilePath()
 	return QApplication::applicationDirPath() + QStringLiteral("/settings.json");
 }
 
+QString AppSettings::playerScrubModeToString(PlayerScrubMode mode)
+{
+	switch (mode)
+	{
+	case PlayerScrubMode::Continuous:
+		return QStringLiteral("continuous");
+	case PlayerScrubMode::DiscreteSecond:
+	default:
+		return QStringLiteral("discrete");
+	}
+}
+
+AppSettings::PlayerScrubMode AppSettings::playerScrubModeFromString(const QString& value)
+{
+	if (value.compare(QStringLiteral("continuous"), Qt::CaseInsensitive) == 0)
+	{
+		return PlayerScrubMode::Continuous;
+	}
+
+	return PlayerScrubMode::DiscreteSecond;
+}
+
+QString AppSettings::playerTimeDisplayModeToString(PlayerTimeDisplayMode mode)
+{
+	switch (mode)
+	{
+	case PlayerTimeDisplayMode::Real:
+		return QStringLiteral("real");
+	case PlayerTimeDisplayMode::Local:
+	default:
+		return QStringLiteral("local");
+	}
+}
+
+AppSettings::PlayerTimeDisplayMode AppSettings::playerTimeDisplayModeFromString(const QString& value)
+{
+	if (value.compare(QStringLiteral("real"), Qt::CaseInsensitive) == 0)
+	{
+		return PlayerTimeDisplayMode::Real;
+	}
+
+	return PlayerTimeDisplayMode::Local;
+}
+
 bool AppSettings::load()
 {
 	const QString path = settingsFilePath();
@@ -66,7 +110,15 @@ bool AppSettings::load()
 		m_plugins.prepend(m_currentPlugin);
 	}
 
-	qInfo() << "AppSettings: loaded" << m_plugins.size() << "plugins, current =" << m_currentPlugin;
+	const QJsonObject player = root.value(QStringLiteral("player")).toObject();
+	m_playerScrubMode = playerScrubModeFromString(
+		player.value(QStringLiteral("scrubMode")).toString());
+	m_playerTimeDisplayMode = playerTimeDisplayModeFromString(
+		player.value(QStringLiteral("timeDisplay")).toString());
+
+	qInfo() << "AppSettings: loaded" << m_plugins.size() << "plugins, current =" << m_currentPlugin
+	        << ", player.scrubMode =" << playerScrubModeToString(m_playerScrubMode)
+	        << ", player.timeDisplay =" << playerTimeDisplayModeToString(m_playerTimeDisplayMode);
 	return !m_plugins.isEmpty() && !m_currentPlugin.isEmpty();
 }
 
@@ -81,6 +133,11 @@ bool AppSettings::save() const
 	root.insert(QStringLiteral("plugins"), pluginsArray);
 	root.insert(QStringLiteral("currentPlugin"), m_currentPlugin);
 
+	QJsonObject player;
+	player.insert(QStringLiteral("scrubMode"), playerScrubModeToString(m_playerScrubMode));
+	player.insert(QStringLiteral("timeDisplay"), playerTimeDisplayModeToString(m_playerTimeDisplayMode));
+	root.insert(QStringLiteral("player"), player);
+
 	const QString path = settingsFilePath();
 	QFile file(path);
 	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -91,13 +148,25 @@ bool AppSettings::save() const
 
 	file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
 	file.close();
-	qInfo() << "AppSettings: saved currentPlugin =" << m_currentPlugin;
+	qInfo() << "AppSettings: saved currentPlugin =" << m_currentPlugin
+	        << ", player.scrubMode =" << playerScrubModeToString(m_playerScrubMode)
+	        << ", player.timeDisplay =" << playerTimeDisplayModeToString(m_playerTimeDisplayMode);
 	return true;
 }
 
 void AppSettings::setCurrentPlugin(const QString& pluginName)
 {
 	m_currentPlugin = pluginName;
+}
+
+void AppSettings::setPlayerScrubMode(PlayerScrubMode mode)
+{
+	m_playerScrubMode = mode;
+}
+
+void AppSettings::setPlayerTimeDisplayMode(PlayerTimeDisplayMode mode)
+{
+	m_playerTimeDisplayMode = mode;
 }
 
 bool AppSettings::hasPlugin(const QString& pluginName) const

@@ -9,23 +9,28 @@
 
 #include <boost/filesystem.hpp>
 
-DriverAdapter::DriverAdapter(QObject *parent)
+DriverAdapter::DriverAdapter(AppSettings* settings, QObject *parent)
 	: QObject(parent)
+	, m_settings(settings)
 	, m_treeJsonParser(new ParameterTreeJsonParser(this))
 {
-	if (!m_settings.load())
+	if (!m_settings)
 	{
-		qCritical() << "DriverAdapter: failed to load settings from"
-		            << AppSettings::settingsFilePath();
+		qCritical() << "DriverAdapter: AppSettings pointer is null";
 		return;
 	}
 
-	createDriver(m_settings.currentPlugin());
+	createDriver(m_settings->currentPlugin());
 }
 
 DriverAdapter::~DriverAdapter()
 {
 	destroyDriver();
+}
+
+QStringList DriverAdapter::availablePlugins() const
+{
+	return m_settings ? m_settings->plugins() : QStringList();
 }
 
 std::optional<boost::filesystem::path> DriverAdapter::resolvePluginPath(const QString& pluginName) const
@@ -162,7 +167,7 @@ bool DriverAdapter::switchPlugin(const QString& pluginName)
 		return true;
 	}
 
-	if (!m_settings.hasPlugin(pluginName))
+	if (!m_settings || !m_settings->hasPlugin(pluginName))
 	{
 		qWarning() << "DriverAdapter: plugin is not listed in settings:" << pluginName;
 		return false;
@@ -188,8 +193,8 @@ bool DriverAdapter::switchPlugin(const QString& pluginName)
 		return false;
 	}
 
-	m_settings.setCurrentPlugin(pluginName);
-	if (!m_settings.save())
+	m_settings->setCurrentPlugin(pluginName);
+	if (!m_settings->save())
 	{
 		qWarning() << "DriverAdapter: plugin switched, but settings.json was not saved";
 	}

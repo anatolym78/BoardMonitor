@@ -3,5 +3,9 @@
     "BoardMonitor_plugin",
     "BoardMonitor_plugin2"
   ],
-  "currentPlugin": "BoardMonitor_plugin2"
+  "currentPlugin": "BoardMonitor_plugin2",
+  "player": {
+    "scrubMode": "discrete",
+    "timeDisplay": "local"
+  }
 }

@@ -29,7 +29,7 @@ class DriverAdapter : public QObject
 	Q_OBJECT
 
 public:
-	explicit DriverAdapter(QObject *parent = nullptr);
+	explicit DriverAdapter(AppSettings* settings, QObject *parent = nullptr);
 	~DriverAdapter();
 
 	void startListening();
@@ -39,7 +39,7 @@ public:
 	void setIngestService(TelemetryIngestService* ingestService);
 
 	QString currentPlugin() const { return m_currentPlugin; }
-	QStringList availablePlugins() const { return m_settings.plugins(); }
+	QStringList availablePlugins() const;
 	bool switchPlugin(const QString& pluginName);
 
 signals:
@@ -63,7 +63,7 @@ private:
 	std::optional<boost::filesystem::path> resolvePluginPath(const QString& pluginName) const;
 
 private:
-	AppSettings m_settings;
+	AppSettings* m_settings = nullptr;
 	QString m_currentPlugin;
 	boost::dll::shared_library m_pluginLibrary;
 	std::shared_ptr<radio::IDriver> m_driver;
