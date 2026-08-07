@@ -7,5 +7,9 @@
   "player": {
     "scrubMode": "discrete",
     "timeDisplay": "local"
+  },
+  "charts": {
+    "showTimeCursor": true,
+    "valueAxisExpandOnly": true
   }
 }

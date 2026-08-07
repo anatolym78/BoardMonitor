@@ -35,6 +35,14 @@ public:
 	PlayerTimeDisplayMode playerTimeDisplayMode() const { return m_playerTimeDisplayMode; }
 	void setPlayerTimeDisplayMode(PlayerTimeDisplayMode mode);
 
+	/** Показывать вертикальный курсор времени на графиках записей (для live всегда скрыт). */
+	bool chartsShowTimeCursor() const { return m_chartsShowTimeCursor; }
+	void setChartsShowTimeCursor(bool enabled);
+
+	/** Ось значений только расширяется под данные, не сжимается. */
+	bool chartsValueAxisExpandOnly() const { return m_chartsValueAxisExpandOnly; }
+	void setChartsValueAxisExpandOnly(bool enabled);
+
 	static QString playerScrubModeToString(PlayerScrubMode mode);
 	static PlayerScrubMode playerScrubModeFromString(const QString& value);
 
@@ -46,4 +54,6 @@ private:
 	QString m_currentPlugin;
 	PlayerScrubMode m_playerScrubMode = PlayerScrubMode::DiscreteSecond;
 	PlayerTimeDisplayMode m_playerTimeDisplayMode = PlayerTimeDisplayMode::Local;
+	bool m_chartsShowTimeCursor = true;
+	bool m_chartsValueAxisExpandOnly = true;
 };

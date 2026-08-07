@@ -196,11 +196,48 @@ void ChartsPanel::setPlayer(DataPlayer* player)
 		return;
 	}
 	m_playConnection = connect(m_player, &DataPlayer::played, this, &ChartsPanel::onPlayed);
+	refreshTimeCursorVisibility();
+}
+
+void ChartsPanel::setShowTimeCursor(bool enabled)
+{
+	if (m_showTimeCursor == enabled)
+	{
+		return;
+	}
+	m_showTimeCursor = enabled;
+	refreshTimeCursorVisibility();
+}
+
+void ChartsPanel::setValueAxisExpandOnly(bool enabled)
+{
+	m_valueAxisExpandOnly = enabled;
 }
 
 bool ChartsPanel::isLivePlayer() const
 {
 	return m_player && qobject_cast<DriverDataPlayer*>(m_player) != nullptr;
+}
+
+bool ChartsPanel::shouldShowTimeCursor() const
+{
+	return m_showTimeCursor && !isLivePlayer();
+}
+
+void ChartsPanel::refreshTimeCursorVisibility()
+{
+	const bool visible = shouldShowTimeCursor();
+	for (auto& chart : m_charts)
+	{
+		if (chart.timeCursor)
+		{
+			chart.timeCursor->setVisible(visible);
+		}
+		if (chart.view)
+		{
+			chart.view->replot(QCustomPlot::rpQueued);
+		}
+	}
 }
 
 void ChartsPanel::onParameterItemHovered(ParameterTreeHistoryItem* treeItem)
@@ -501,7 +538,7 @@ void ChartsPanel::onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying)
 		updateTimeWindow(chart, cursorKey, livePlayer && !seekUpdate);
 		updateTimeCursor(chart, cursorKey);
 		trimSeriesOutsideWindow(chart);
-		if (seekUpdate || !livePlayer)
+		if (seekUpdate || !livePlayer || !m_valueAxisExpandOnly || !chart.valueAxisInitialized)
 		{
 			updateValueAxisFromVisible(chart);
 		}
@@ -536,12 +573,19 @@ void ChartsPanel::createTimeCursor(ChartRuntime& chart)
 	rect->topLeft->setAxes(chart.timeAxis, chart.valueAxis);
 	rect->bottomRight->setAxes(chart.timeAxis, chart.valueAxis);
 	chart.timeCursor = rect;
+	chart.timeCursor->setVisible(shouldShowTimeCursor());
 	updateTimeCursor(chart, currentCursorKey());
 }
 
 void ChartsPanel::updateTimeCursor(ChartRuntime& chart, double cursorKey)
 {
 	if (!chart.timeCursor)
+	{
+		return;
+	}
+
+	chart.timeCursor->setVisible(shouldShowTimeCursor());
+	if (!chart.timeCursor->visible())
 	{
 		return;
 	}
@@ -634,15 +678,52 @@ void ChartsPanel::updateValueAxisFromVisible(ChartRuntime& chart)
 		return;
 	}
 
-	const double valueRange = localMax - localMin;
-	if (qFuzzyIsNull(valueRange))
+	applyValueAxisRange(chart, localMin, localMax);
+}
+
+void ChartsPanel::applyValueAxisRange(ChartRuntime& chart, double dataMin, double dataMax)
+{
+	if (!chart.valueAxis)
 	{
-		chart.valueAxis->setRange(localMin - 1, localMax + 1);
+		return;
+	}
+
+	if (dataMax < dataMin)
+	{
+		return;
+	}
+
+	if (!m_valueAxisExpandOnly || !chart.valueAxisInitialized)
+	{
+		chart.valueEnvelopeLower = dataMin;
+		chart.valueEnvelopeUpper = dataMax;
+		chart.valueAxisInitialized = true;
 	}
 	else
 	{
-		chart.valueAxis->setRange(localMin - valueRange * 0.1, localMax + valueRange * 0.1);
+		chart.valueEnvelopeLower = qMin(chart.valueEnvelopeLower, dataMin);
+		chart.valueEnvelopeUpper = qMax(chart.valueEnvelopeUpper, dataMax);
 	}
+
+	const double valueRange = chart.valueEnvelopeUpper - chart.valueEnvelopeLower;
+	double lower;
+	double upper;
+	if (valueRange < 1e-12)
+	{
+		// Почти константа: небольшой абсолютный запас, без гигантского ±1
+		const double pad = qMax(qAbs(chart.valueEnvelopeLower) * 0.02, 0.05);
+		lower = chart.valueEnvelopeLower - pad;
+		upper = chart.valueEnvelopeUpper + pad;
+	}
+	else
+	{
+		// Визуальный отступ только при отрисовке; в envelope не накапливается
+		const double pad = valueRange * 0.05;
+		lower = chart.valueEnvelopeLower - pad;
+		upper = chart.valueEnvelopeUpper + pad;
+	}
+
+	chart.valueAxis->setRange(lower, upper);
 }
 
 void ChartsPanel::syncSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data)
@@ -716,13 +797,9 @@ void ChartsPanel::updateSeries(int chartIndex, const QString& label, ParameterTr
 		localMax = qMax(localMax, d);
 		hasNew = true;
 	}
-	if (hasNew && chart.valueAxis)
+	if (hasNew && chart.valueAxis && m_valueAxisExpandOnly)
 	{
-		QCPRange range = chart.valueAxis->range();
-		bool changed = false;
-		if (range.lower > localMin) { range.lower = localMin; changed = true; }
-		if (range.upper < localMax) { range.upper = localMax; changed = true; }
-		if (changed) chart.valueAxis->setRange(range);
+		applyValueAxisRange(chart, localMin, localMax);
 	}
 }
 

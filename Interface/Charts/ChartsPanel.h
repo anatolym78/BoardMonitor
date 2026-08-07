@@ -39,6 +39,9 @@ public:
 		QPointer<QCPAxis> valueAxis;
 		QPointer<QCPItemRect> timeCursor;
 		bool isAxesInitialized = false;
+		bool valueAxisInitialized = false;
+		double valueEnvelopeLower = 0.0;
+		double valueEnvelopeUpper = 1.0;
 		bool windowInitialized = false;
 		double windowBeginKey = 0.0;
 		double lastAxisEndKey = 0.0;
@@ -50,6 +53,9 @@ public:
 	void setModel(ChartsModel* chartsModel);
 	void setPlayer(DataPlayer* player);
 	void setInteractionPaused(bool paused);
+
+	void setShowTimeCursor(bool enabled);
+	void setValueAxisExpandOnly(bool enabled);
 
 	void onParameterItemHovered(ParameterTreeHistoryItem* treeItem);
 
@@ -81,9 +87,12 @@ private:
 
 	void createTimeCursor(ChartRuntime& chart);
 	void updateTimeCursor(ChartRuntime& chart, double cursorKey);
+	void refreshTimeCursorVisibility();
+	bool shouldShowTimeCursor() const;
 	void updateTimeWindow(ChartRuntime& chart, double cursorKey, bool throttle);
 	void trimSeriesOutsideWindow(ChartRuntime& chart);
 	void updateValueAxisFromVisible(ChartRuntime& chart);
+	void applyValueAxisRange(ChartRuntime& chart, double dataMin, double dataMax);
 	double currentCursorKey() const;
 
 	void updateCellSizes();
@@ -112,6 +121,8 @@ private:
 	QList<ChartRuntime> m_charts;
 	QMap<QCPAbstractPlottable*, QColor> m_seriesColors;
 	bool m_interactionPaused = false;
+	bool m_showTimeCursor = true;
+	bool m_valueAxisExpandOnly = true;
 };
 
 #endif // CHARTSPANEL_H

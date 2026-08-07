@@ -29,6 +29,7 @@ public:
 
     TelemetryDataView* parametersTree() const { return m_parametersTree; }
     PlaybackView* playerView() const { return m_playerView; }
+    ChartsPanel* chartsPanel() const { return m_chartsPanel; }
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

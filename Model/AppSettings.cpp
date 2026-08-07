@@ -116,9 +116,15 @@ bool AppSettings::load()
 	m_playerTimeDisplayMode = playerTimeDisplayModeFromString(
 		player.value(QStringLiteral("timeDisplay")).toString());
 
+	const QJsonObject charts = root.value(QStringLiteral("charts")).toObject();
+	m_chartsShowTimeCursor = charts.value(QStringLiteral("showTimeCursor")).toBool(true);
+	m_chartsValueAxisExpandOnly = charts.value(QStringLiteral("valueAxisExpandOnly")).toBool(true);
+
 	qInfo() << "AppSettings: loaded" << m_plugins.size() << "plugins, current =" << m_currentPlugin
 	        << ", player.scrubMode =" << playerScrubModeToString(m_playerScrubMode)
-	        << ", player.timeDisplay =" << playerTimeDisplayModeToString(m_playerTimeDisplayMode);
+	        << ", player.timeDisplay =" << playerTimeDisplayModeToString(m_playerTimeDisplayMode)
+	        << ", charts.showTimeCursor =" << m_chartsShowTimeCursor
+	        << ", charts.valueAxisExpandOnly =" << m_chartsValueAxisExpandOnly;
 	return !m_plugins.isEmpty() && !m_currentPlugin.isEmpty();
 }
 
@@ -138,6 +144,11 @@ bool AppSettings::save() const
 	player.insert(QStringLiteral("timeDisplay"), playerTimeDisplayModeToString(m_playerTimeDisplayMode));
 	root.insert(QStringLiteral("player"), player);
 
+	QJsonObject charts;
+	charts.insert(QStringLiteral("showTimeCursor"), m_chartsShowTimeCursor);
+	charts.insert(QStringLiteral("valueAxisExpandOnly"), m_chartsValueAxisExpandOnly);
+	root.insert(QStringLiteral("charts"), charts);
+
 	const QString path = settingsFilePath();
 	QFile file(path);
 	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -150,7 +161,9 @@ bool AppSettings::save() const
 	file.close();
 	qInfo() << "AppSettings: saved currentPlugin =" << m_currentPlugin
 	        << ", player.scrubMode =" << playerScrubModeToString(m_playerScrubMode)
-	        << ", player.timeDisplay =" << playerTimeDisplayModeToString(m_playerTimeDisplayMode);
+	        << ", player.timeDisplay =" << playerTimeDisplayModeToString(m_playerTimeDisplayMode)
+	        << ", charts.showTimeCursor =" << m_chartsShowTimeCursor
+	        << ", charts.valueAxisExpandOnly =" << m_chartsValueAxisExpandOnly;
 	return true;
 }
 
@@ -167,6 +180,16 @@ void AppSettings::setPlayerScrubMode(PlayerScrubMode mode)
 void AppSettings::setPlayerTimeDisplayMode(PlayerTimeDisplayMode mode)
 {
 	m_playerTimeDisplayMode = mode;
+}
+
+void AppSettings::setChartsShowTimeCursor(bool enabled)
+{
+	m_chartsShowTimeCursor = enabled;
+}
+
+void AppSettings::setChartsValueAxisExpandOnly(bool enabled)
+{
+	m_chartsValueAxisExpandOnly = enabled;
 }
 
 bool AppSettings::hasPlugin(const QString& pluginName) const

@@ -5,6 +5,7 @@
 #include "./Interface/Uplink/UplinkEditorView.h"
 #include "./Interface/Tools/UplinkEditorDelegates.h"
 #include "./Interface/Session/SessionWorkspace.h"
+#include "./Interface/Charts/ChartsPanel.h"
 #include "./Interface/Player/PlaybackView.h"
 #include "./ViewModel/SessionsListModel.h"
 #include "./ViewModel/DebugViewModel.h"
@@ -358,7 +359,9 @@ void MainWindow::setupPluginsMenu()
 		this, &MainWindow::syncPluginsMenuSelection);
 
 	setupPlayerSettingsMenu(settingsMenu);
+	setupChartsSettingsMenu(settingsMenu);
 	applyPlayerSettingsToAllViews();
+	applyChartsSettingsToAllViews();
 }
 
 void MainWindow::setupPlayerSettingsMenu(QMenu* settingsMenu)
@@ -448,6 +451,73 @@ void MainWindow::setupPlayerSettingsMenu(QMenu* settingsMenu)
 	addTimeAction(tr("Real"), AppSettings::PlayerTimeDisplayMode::Real);
 }
 
+void MainWindow::setupChartsSettingsMenu(QMenu* settingsMenu)
+{
+	if (!settingsMenu || !m_app)
+	{
+		return;
+	}
+
+	auto& settings = m_app->settings();
+	auto* chartsMenu = settingsMenu->addMenu(tr("Charts"));
+
+	m_chartsShowTimeCursorAction = chartsMenu->addAction(tr("Show time cursor"));
+	m_chartsShowTimeCursorAction->setCheckable(true);
+	m_chartsShowTimeCursorAction->setChecked(settings.chartsShowTimeCursor());
+	m_chartsShowTimeCursorAction->setToolTip(
+		tr("Vertical time mark on recorded charts. Always hidden for live sessions."));
+
+	connect(m_chartsShowTimeCursorAction, &QAction::toggled, this, [this](bool checked)
+	{
+		if (!m_app)
+		{
+			return;
+		}
+
+		auto& appSettings = m_app->settings();
+		if (appSettings.chartsShowTimeCursor() == checked)
+		{
+			return;
+		}
+
+		appSettings.setChartsShowTimeCursor(checked);
+		if (!appSettings.save())
+		{
+			QMessageBox::warning(this, tr("Charts"), tr("Failed to save settings.json."));
+		}
+
+		applyChartsSettingsToAllViews();
+	});
+
+	m_chartsValueAxisExpandOnlyAction = chartsMenu->addAction(tr("Y-axis: expand only"));
+	m_chartsValueAxisExpandOnlyAction->setCheckable(true);
+	m_chartsValueAxisExpandOnlyAction->setChecked(settings.chartsValueAxisExpandOnly());
+	m_chartsValueAxisExpandOnlyAction->setToolTip(
+		tr("Value axis range can grow to fit data, but never shrink."));
+
+	connect(m_chartsValueAxisExpandOnlyAction, &QAction::toggled, this, [this](bool checked)
+	{
+		if (!m_app)
+		{
+			return;
+		}
+
+		auto& appSettings = m_app->settings();
+		if (appSettings.chartsValueAxisExpandOnly() == checked)
+		{
+			return;
+		}
+
+		appSettings.setChartsValueAxisExpandOnly(checked);
+		if (!appSettings.save())
+		{
+			QMessageBox::warning(this, tr("Charts"), tr("Failed to save settings.json."));
+		}
+
+		applyChartsSettingsToAllViews();
+	});
+}
+
 void MainWindow::syncPlayerScrubMenuSelection(AppSettings::PlayerScrubMode mode)
 {
 	if (!m_playerScrubActionGroup)
@@ -486,6 +556,25 @@ void MainWindow::applyPlayerSettingsToWorkspace(SessionWorkspace* workspace)
 	auto* playerView = workspace->playerView();
 	playerView->setScrubMode(m_app->settings().playerScrubMode());
 	playerView->setTimeDisplayMode(m_app->settings().playerTimeDisplayMode());
+	applyChartsSettingsToWorkspace(workspace);
+}
+
+void MainWindow::applyChartsSettingsToWorkspace(SessionWorkspace* workspace)
+{
+	if (!workspace || !m_app)
+	{
+		return;
+	}
+
+	auto* chartsPanel = workspace->chartsPanel();
+	if (!chartsPanel)
+	{
+		return;
+	}
+
+	const auto& settings = m_app->settings();
+	chartsPanel->setShowTimeCursor(settings.chartsShowTimeCursor());
+	chartsPanel->setValueAxisExpandOnly(settings.chartsValueAxisExpandOnly());
 }
 
 void MainWindow::applyPlayerSettingsToAllViews()
@@ -510,6 +599,38 @@ void MainWindow::applyPlayerSettingsToAllViews()
 		if (auto* workspace = stack->getSessionFrame(i))
 		{
 			applyPlayerSettingsToWorkspace(workspace);
+		}
+	}
+}
+
+void MainWindow::applyChartsSettingsToAllViews()
+{
+	if (!m_app)
+	{
+		return;
+	}
+
+	const auto& settings = m_app->settings();
+	if (m_chartsShowTimeCursorAction)
+	{
+		m_chartsShowTimeCursorAction->setChecked(settings.chartsShowTimeCursor());
+	}
+	if (m_chartsValueAxisExpandOnlyAction)
+	{
+		m_chartsValueAxisExpandOnlyAction->setChecked(settings.chartsValueAxisExpandOnly());
+	}
+
+	auto* stack = sessionsStackView();
+	if (!stack)
+	{
+		return;
+	}
+
+	for (int i = 0; i < stack->count(); ++i)
+	{
+		if (auto* workspace = stack->getSessionFrame(i))
+		{
+			applyChartsSettingsToWorkspace(workspace);
 		}
 	}
 }
