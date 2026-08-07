@@ -15,7 +15,6 @@ LiveSession::LiveSession(QObject *parent)
 	m_player = new DriverDataPlayer(this);
 	m_player->setStorage(m_treeStorage);
 
-	m_chartsModel->setPlayer(m_player);
 	m_parametersModel->attachExternalStorage(m_treeStorage);
 
 	connect(m_treeStorage, &ParameterTreeStorage::valueAdded, this,

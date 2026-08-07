@@ -8,7 +8,7 @@ Session::Session(QObject *parent)
 	: QObject(parent)
 	, m_treeStorage(new ParameterTreeStorage(this))
 	, m_parametersModel(new BoardParametersTreeModel(parent))
-	, m_chartsModel(new ChatViewGridModel(parent))
+	, m_chartsModel(new ChartsModel(parent))
 	, m_player(nullptr)
 	, m_opened(false)
 {
@@ -48,7 +48,7 @@ ParameterTreeStorage* Session::storage() const
 namespace {
 
 void updateChartVisibilityForSelection(BoardParametersTreeModel* parametersModel,
-	ChatViewGridModel* chartsModel,
+	ChartsModel* chartsModel,
 	const QModelIndex& currentIndex)
 {
 	std::function<void(const QModelIndex&)> updateVisibility;

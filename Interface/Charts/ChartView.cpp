@@ -1,4 +1,4 @@
-#include "ParametersChartView.h"
+#include "ChartView.h"
 #include <QEvent>
 #include <QMouseEvent>
 
@@ -13,7 +13,7 @@ const QColor kHoveredBackground = QColor(255, 239, 193);
 
 } // namespace
 
-ParametersChartView::ParametersChartView(int chartIndex, int row, int column, QWidget* parent)
+ChartView::ChartView(int chartIndex, int row, int column, QWidget* parent)
 	: QCustomPlot(parent)
 	, m_row(row)
 	, m_column(column)
@@ -24,7 +24,7 @@ ParametersChartView::ParametersChartView(int chartIndex, int row, int column, QW
 	setBackground(QBrush(kNormalBackground));
 }
 
-void ParametersChartView::setSelected(bool selected)
+void ChartView::setSelected(bool selected)
 {
 	if (m_selected == selected)
 	{
@@ -35,14 +35,14 @@ void ParametersChartView::setSelected(bool selected)
 	updateBackground();
 }
 
-void ParametersChartView::setHovered(bool hover)
+void ChartView::setHovered(bool hover)
 {
 	m_hovered = hover;
 
 	updateBackground();
 }
 
-void ParametersChartView::enterEvent(QEvent* event)
+void ChartView::enterEvent(QEvent* event)
 {
 	QCustomPlot::enterEvent(event);
 	
@@ -51,7 +51,7 @@ void ParametersChartView::enterEvent(QEvent* event)
 	updateBackground();
 }
 
-void ParametersChartView::leaveEvent(QEvent* event)
+void ChartView::leaveEvent(QEvent* event)
 {
 	QCustomPlot::leaveEvent(event);
 	
@@ -62,7 +62,7 @@ void ParametersChartView::leaveEvent(QEvent* event)
 	updateBackground();
 }
 
-void ParametersChartView::mousePressEvent(QMouseEvent* event)
+void ChartView::mousePressEvent(QMouseEvent* event)
 {
 	QCustomPlot::mousePressEvent(event);
 
@@ -70,20 +70,20 @@ void ParametersChartView::mousePressEvent(QMouseEvent* event)
 	{
 		m_selected = !m_selected;
 
-		m_chartsModel->selectElement(m_chartIndex, true);
+		m_chartsModel->selectChart(m_chartIndex, true);
 
 		updateBackground();
 	}
 }
 
-void ParametersChartView::mouseMoveEvent(QMouseEvent* event)
+void ChartView::mouseMoveEvent(QMouseEvent* event)
 {
 	QCustomPlot::mouseMoveEvent(event);
 
 	setHoveredGraph(qobject_cast<QCPGraph*>(plottableAt(event->pos())));
 }
 
-void ParametersChartView::setHoveredGraph(QCPGraph* graph)
+void ChartView::setHoveredGraph(QCPGraph* graph)
 {
 	if (m_hoveredGraph == graph)
 	{
@@ -103,7 +103,7 @@ void ParametersChartView::setHoveredGraph(QCPGraph* graph)
 	}
 }
 
-void ParametersChartView::updateBackground()
+void ChartView::updateBackground()
 {
 	if (m_hovered)
 	{

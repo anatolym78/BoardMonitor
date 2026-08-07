@@ -10,8 +10,6 @@
 #include "./ViewModel/LiveSession.h"
 #include "./ViewModel/RecordedSession.h"
 
-#include "./ViewModel/ChatViewGridModel.h"
-
 #include "./ViewModel/UplinkParametersTreeModel.h"
 #include "./ViewModel/DebugViewModel.h"
 

@@ -44,10 +44,10 @@ set(
     Interface/Session/SessionListDelegate.h
     Interface/Telemetry/TelemetryDataView.cpp
     Interface/Telemetry/TelemetryDataView.h
-    Interface/Charts/ChartsDashboardView.cpp
-    Interface/Charts/ChartsDashboardView.h
-    Interface/Charts/ParametersChartView.cpp
-    Interface/Charts/ParametersChartView.h
+    Interface/Charts/ChartsPanel.cpp
+    Interface/Charts/ChartsPanel.h
+    Interface/Charts/ChartView.cpp
+    Interface/Charts/ChartView.h
     Interface/Player/PlaybackView.cpp
     Interface/Player/PlaybackView.h
     Interface/Uplink/UplinkEditorView.cpp
@@ -64,8 +64,8 @@ set(
     VIEWMODEL_SOURCES
     ViewModel/BoardParametersTreeModel.cpp
     ViewModel/BoardParametersTreeModel.h
-    ViewModel/ChatViewGridModel.cpp
-    ViewModel/ChatViewGridModel.h
+    ViewModel/ChartsModel.cpp
+    ViewModel/ChartsModel.h
     ViewModel/DataPlayer.cpp
     ViewModel/DataPlayer.h
     ViewModel/DriverDataPlayer.cpp

@@ -1,6 +1,6 @@
 #include "SessionWorkspace.h"
 #include "../Telemetry/TelemetryDataView.h"
-#include "../Charts/ChartsDashboardView.h"
+#include "../Charts/ChartsPanel.h"
 #include "../Player/PlaybackView.h"
 
 #include <QSplitter>
@@ -50,7 +50,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	QWidget* parametersContainer = new QWidget(this);
 	parametersContainer->setLayout(parametersLayout);
 
-	m_chartsPanel = new ChartsDashboardView(this);
+	m_chartsPanel = new ChartsPanel(this);
 	m_playerView = new PlaybackView(this);
 
 	auto* sessionTabs = new QTabWidget(this);
@@ -86,7 +86,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 
 	attachModels(m_session);
 
-	connect(m_parametersTree, &TelemetryDataView::itemHovered, m_chartsPanel, &ChartsDashboardView::onParameterItemHovered);
+	connect(m_parametersTree, &TelemetryDataView::itemHovered, m_chartsPanel, &ChartsPanel::onParameterItemHovered);
 
 }
 
@@ -104,10 +104,11 @@ void SessionWorkspace::attachModels(Session* session)
 
 	m_chartsPanel->setModel(session->chartsModel());
 
-	// Подключаем плеер к PlayerView
+	// Подключаем плеер к PlayerView и к панели графиков
 	if (session->player())
 	{
 		m_playerView->setPlayer(session->player());
+		m_chartsPanel->setPlayer(session->player());
 	}
 }
 
@@ -163,17 +164,12 @@ void SessionWorkspace::setChartsInteractionPaused(bool paused)
 
 	if (m_chartsPanel)
 	{
-		m_chartsPanel->setLayoutInteractionPaused(paused);
+		m_chartsPanel->setInteractionPaused(paused);
 	}
 
 	if (!m_session)
 	{
 		return;
-	}
-
-	if (auto* chartsModel = m_session->chartsModel())
-	{
-		chartsModel->setChartInteractionPaused(paused);
 	}
 
 	if (m_session->getType() != Session::LiveSession)

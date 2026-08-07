@@ -1,32 +1,32 @@
-#ifndef PARAMETERSCHARTVIEW_H
-#define PARAMETERSCHARTVIEW_H
+#ifndef CHARTVIEW_H
+#define CHARTVIEW_H
 
 #include <QColor>
 #include <QBrush>
 
 #include "qcustomplot.h"
 
-#include "../../ViewModel/ChatViewGridModel.h"
+#include "../../ViewModel/ChartsModel.h"
 
 /**
- * @brief Виджет отдельного графика.
- * 
- * Отображает один график в сетке ChartsDashboardView. 
- * Может содержать одну или несколько серий данных (линий).
- * Поддерживает выделение и взаимодействие с мышью.
+ * @brief Виджет одной ячейки графика (обёртка над QCustomPlot).
+ *
+ * Живёт в сетке ChartsPanel. Отвечает за локальный UI: фон при выделении/hover,
+ * клик (selection в ChartsModel), сигнал graphHovered. Точки серий пишет ChartsPanel.
  */
-class ParametersChartView : public QCustomPlot
+class ChartView : public QCustomPlot
 {
 	Q_OBJECT
 
 public:
-	explicit ParametersChartView(int chartIndex, int row, int column, QWidget* parent = nullptr);
-	void setModel(ChatViewGridModel* model) { m_chartsModel = model; }
+	explicit ChartView(int chartIndex, int row, int column, QWidget* parent = nullptr);
+	void setModel(ChartsModel* model) { m_chartsModel = model; }
 	void setSelected(bool selected);
 	bool isSelected() const { return m_selected; }
 
 	void setHovered(bool hover);
 	int chartIndex() const { return m_chartIndex; }
+	void setChartIndex(int index) { m_chartIndex = index; }
 
 signals:
 	/** Курсор вошёл в серию или покинул её: в QCustomPlot 1.x у серий нет своего сигнала hovered. */
@@ -47,8 +47,8 @@ private:
 	bool m_selected = false;
 	bool m_hovered = false;
 
-	ChatViewGridModel* m_chartsModel = nullptr;
+	ChartsModel* m_chartsModel = nullptr;
 	QCPGraph* m_hoveredGraph = nullptr;
 };
 
-#endif // PARAMETERSCHARTVIEW_H
+#endif // CHARTVIEW_H

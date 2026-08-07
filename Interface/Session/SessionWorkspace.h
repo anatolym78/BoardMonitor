@@ -7,7 +7,7 @@
 #include "../../ViewModel/Session.h"
 
 class TelemetryDataView;
-class ChartsDashboardView;
+class ChartsPanel;
 class PlaybackView;
 class QToolButton;
 
@@ -43,7 +43,7 @@ private:
 
     QPointer<Session> m_session; 
     TelemetryDataView* m_parametersTree;
-    ChartsDashboardView* m_chartsPanel;
+    ChartsPanel* m_chartsPanel;
     PlaybackView* m_playerView;
     QToolButton* m_showChartButton;
     QToolButton* m_hideChartButton;

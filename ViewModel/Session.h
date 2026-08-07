@@ -7,7 +7,7 @@
 
 #include "./DataPlayer.h"
 #include "./BoardParametersTreeModel.h"
-#include "./ChatViewGridModel.h"
+#include "./ChartsModel.h"
 
 class BoardParameterHistoryStorage;
 class ParameterTreeStorage;
@@ -29,7 +29,7 @@ public:
 	DataPlayer* player() const { return m_player; }
 	BoardParametersTreeModel* parametersModel()  const;
 	QItemSelectionModel* parametersSelectionModel() const { return m_parametersSelectionModel; }
-	ChatViewGridModel* chartsModel() const { return m_chartsModel; }
+	ChartsModel* chartsModel() const { return m_chartsModel; }
 
 	explicit Session(QObject *parent = nullptr);
 	virtual ~Session();
@@ -72,7 +72,7 @@ protected:
 protected:
 	BoardParametersTreeModel* m_parametersModel;
 	QItemSelectionModel* m_parametersSelectionModel;
-	ChatViewGridModel* m_chartsModel;
+	ChartsModel* m_chartsModel;
 	DataPlayer* m_player;
 	ParameterTreeStorage* m_treeStorage;
 	bool m_opened;

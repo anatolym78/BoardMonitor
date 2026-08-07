@@ -17,9 +17,6 @@ RecordedSession::RecordedSession(const BoardMessagesSqliteReader::SessionInfo& s
 	m_player->setStorage(m_treeStorage);
 
 	connect(m_player, &SessionPlayer::played, m_parametersModel, &BoardParametersTreeModel::setSnapshot);
-
-	m_chartsModel->setPlayer(m_player);
-	//m_chartsModel->setStorage(m_storage);
 }
 
 void RecordedSession::open()

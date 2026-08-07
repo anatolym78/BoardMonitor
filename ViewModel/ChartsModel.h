@@ -1,162 +1,66 @@
-#ifndef CHATVIEWGRIDMODEL_H
-#define CHATVIEWGRIDMODEL_H
+#ifndef CHARTSMODEL_H
+#define CHARTSMODEL_H
 
-#include <QAbstractListModel>
-#include <QAbstractTableModel>
+#include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QList>
-#include <QDateTime>
-#include <QVariant>
-#include <QColor>
-#include <QPointer>
-
-#include "qcustomplot.h"
 
 #include "./../Model/Parameters/Tree/ParameterTreeItem.h"
 #include "./../Model/Parameters/Tree/ParameterTreeHistoryItem.h"
-#include "./DataPlayer.h"
 
-class ChatViewGridModel : public QAbstractListModel
+/**
+ * @brief Логическая модель набора графиков одной сессии.
+ *
+ * Хранит только структуру: слоты графиков, имена серий, selection.
+ * Не знает про QCustomPlot и не пишет точки — это делает ChartsPanel (presenter/view).
+ *
+ * Добавление:
+ *  Session → showParameter() → chartAdded → ChartsPanel создаёт ChartView и серии.
+ */
+class ChartsModel : public QObject
 {
 	Q_OBJECT
-		
-	Q_PROPERTY(bool isCanMergeCharts READ isCanMergeCharts NOTIFY isCanMergeChartsChanged)
 
 public:
-	enum ChartViewRoles
+	struct ChartSlot
 	{
-		LabelsRole = Qt::UserRole + 1,
-		LabelRole,
-		ChartIndexRole,
-		DepthRole,
-		SelectionRole,
-		HoverRole,
-		ColorRole,
-		seriesMapRole,
-	};
-	struct ChartInfo
-	{
-		QString chartName;
-		QStringList series;
-		QColor color = Qt::darkGray;
+		QString rootLabel;
+		QStringList seriesLabels;
 		bool isSelected = false;
-		QMap<QString, QPointer<QCPGraph>> seriesMap;
-		QPointer<QCustomPlot> plot = nullptr;
-		QPointer<QCPAxis> timeAxis = nullptr;
-		QPointer<QCPAxis> valueAxis = nullptr;
-		bool isAxesInitialized = false;
-		double lastAxisEndKey = 0.0;
-		qint64 lastAxisUpdateMs = 0;
 	};
 
-	void setChartInteractionPaused(bool paused);
-	bool isChartInteractionPaused() const { return m_chartInteractionPaused; }
+	explicit ChartsModel(QObject* parent = nullptr);
 
-	void toggleParameter(ParameterTreeItem* parameter);// QString chartName);
 	void showParameter(ParameterTreeItem* parameter);
 	void hideParameter(ParameterTreeItem* parameter);
+	void toggleParameter(ParameterTreeItem* parameter);
 	bool isParameterDisplayed(ParameterTreeItem* parameter) const;
+	bool hasSeries(const QString& label) const;
 
-	explicit ChatViewGridModel(QObject *parent = nullptr);
-
-	void setPlayer(DataPlayer* dataPlayer);
-
-	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-	QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-	QHash<int, QByteArray> roleNames() const override;
-
-	// Методы для работы с графиками
-	Q_INVOKABLE void toggleParameter(const QString& label, const QColor& color = Qt::red);
-	Q_INVOKABLE void addSeries(const QString &label, const QColor& color = Qt::red);
-	Q_INVOKABLE void removeSeries(const QString& label);
-	Q_INVOKABLE void clearCharts();
-	Q_INVOKABLE QStringList getChartSeriesLabels(int chartIndex) const;
-
-	void mergeCharts();
-	/// <summary>
-	/// Вызывается по кнопке объединения графиков
-	/// Подготавливает названия серий, который должны быть перемещены
-	/// Вызывает сигнал, обрабатываемый на стороне qml, в который передеются
-	/// индекс графика, в которй нужно переместить серии и названия этих серий
-	/// </summary>
-	/// <returns></returns>
-	Q_INVOKABLE void mergeSelectedCharts();
-	QList<int> selectedIndices() const;
-	int countSelectedIndices() const;
-	int countEmptyCharts() const;
-	int firstEmptyChart() const;
-	Q_INVOKABLE void splitSeries(int chartIndex);
-	void removeEmptyCharts();
-	
-	Q_INVOKABLE QStringList chartLabels() const;
-
-	Q_INVOKABLE bool hasSeries(const QString &label) const;
-	Q_INVOKABLE int countSeries() const { return m_charts.count(); }
-	Q_INVOKABLE bool isEmpty() const { return m_charts.isEmpty(); }
-
-	Q_INVOKABLE bool selectElement(int index, bool keepSelection);
-	Q_INVOKABLE void clearSelection();
-
-	Q_INVOKABLE bool hoverElement(int index);
-	Q_INVOKABLE void clearHover();
-
-	Q_INVOKABLE bool isCanMergeCharts() const;
-
-	// new (move charts logic to c++ code)
-	Q_INVOKABLE void addSeriesToChart(int chartIndex, const QString& label, const QColor& color, QCustomPlot* plot, QCPGraph* graph, QCPAxis* timeAxis, QCPAxis* valueAxis);
-	Q_INVOKABLE void moveSeriesToChart(int chartIndex, const QString& label, QCustomPlot* plot, QCPGraph* graph);
-	
-	Q_INVOKABLE bool isSeriesCreated(const QString& label) const;
-
-	void updateAllCells();
-
-	void fillSeries(const QString& label, QColor color, bool isInitialFill);
-	QColor labelColor(QString label);
-
+	int chartCount() const { return m_charts.count(); }
+	QStringList seriesLabels(int chartIndex) const;
 	int findChartIndex(const QString& label) const;
-	bool hasChart(const QString& label) const { return findChartIndex(label) != -1; }
 
-	// Вспомогательная функция для фильтрации данных за пределами диапазона
-	void filterDataOutsideRange(
-		const QList<QDateTime>& times, 
-		const QList<QVariant>& values, 
-		const QDateTime& seriesStartTime, 
-		const QDateTime& seriesEndTime, 
-		bool isBackPlaying,
-		QList<QDateTime>& outTimes, 
-		QList<QVariant>& outValues);
-	
+	bool selectChart(int index, bool keepSelection);
+	void clearSelection();
+	QList<int> selectedIndices() const;
+	bool canMergeCharts() const;
+	void mergeSelectedCharts();
+
 signals:
-	void parameterAdded(int chartIndex, ParameterTreeItem* parameter);
-	void parametersNeedToMove(int chartIndex, QStringList labels);
-	void parameterNeedToRemove(int chartIndex, const QString& label);
-	void isCanMergeChartsChanged();
+	void chartAdded(int chartIndex, ParameterTreeItem* parameter);
+	void seriesRemoved(int chartIndex, const QString& label);
+	void chartRemoved(int chartIndex);
+	void seriesMoved(int targetChartIndex, const QStringList& labels);
+	void selectionChanged();
 
 private:
-	DataPlayer* m_dataPlayer = nullptr;
-	QMetaObject::Connection m_playConnection;
-	//QMetaObject::Connection m_stopConnection;
-	QList<ChartInfo> m_charts;
-	//QList<QStringList> m_series;
-	//QList<int> m_depths;
-	//QList<bool> m_selectedIndices;
-	int m_hoverIndex = -1;
-	bool m_chartInteractionPaused = false;
-
-	// Вспомогательные методы
-	bool parameterExistsInHistory(const QString &label) const;
-	void updateValueAxisRange(int chartIndex);
 	void collectHistoryItems(ParameterTreeItem* item, QList<ParameterTreeHistoryItem*>& out) const;
+	void removeSeries(const QString& label);
+	void removeEmptyCharts();
 
-private:
-	DataPlayer* player() const { return m_dataPlayer; }
-private:
-	void onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying);
-	void updateSeries(const QString& label, ParameterTreeHistoryItem* data, bool isBackPlaying);
-	void rebuildSeriesFromHistory(const QString& label, ParameterTreeHistoryItem* data);
-	bool isLivePlayer() const;
-	/** Ширина видимого окна графика в координатах оси времени (секунды с эпохи). */
-	double visibleSpanSeconds() const { return 15.0; }
+	QList<ChartSlot> m_charts;
 };
 
-#endif // CHATVIEWGRIDMODEL_H
+#endif // CHARTSMODEL_H
