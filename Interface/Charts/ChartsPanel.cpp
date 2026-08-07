@@ -36,9 +36,9 @@ void applyTimeAxisRange(QCPAxis* axis, double beginKey, double endKey)
 		return;
 	}
 
-	const double span = qMax(endKey - beginKey, 1.0);
-	const double pad = span / 20.0;
-	axis->setRange(beginKey - pad, endKey + pad);
+	// Диапазон оси = видимое окно данных без полей: иначе слева/справа
+	// появляется пустая полоса ~span/20 (при 15 с это почти секунда)
+	axis->setRange(beginKey, qMax(endKey, beginKey + 1.0));
 }
 
 bool shouldRefreshTimeAxis(const ChartsPanel::ChartRuntime& chart, double endKey)
@@ -312,6 +312,7 @@ void ChartsPanel::onChartAdded(int chartIndex, ParameterTreeItem* parameter)
 		m_charts.append(ChartRuntime{});
 	}
 	m_charts[chartIndex] = runtime;
+	createTimeCursor(m_charts[chartIndex]);
 
 	if (parameter->type() == ParameterTreeItem::ItemType::History)
 	{
@@ -364,8 +365,23 @@ void ChartsPanel::fillSeriesFromStorage(int chartIndex, const QString& label)
 	if (!m_player || !m_player->storage()) return;
 	ParameterTreeHistoryItem* history = m_player->storage()->findHistoryItemByFullName(label);
 	if (!history) return;
-	if (isLivePlayer()) updateSeries(chartIndex, label, history, false);
-	else rebuildSeriesFromHistory(chartIndex, label, history);
+
+	if (isLivePlayer())
+	{
+		updateSeries(chartIndex, label, history, false);
+	}
+	else
+	{
+		syncSeriesFromHistory(chartIndex, label, history);
+	}
+
+	if (chartIndex < 0 || chartIndex >= m_charts.count()) return;
+	auto& chart = m_charts[chartIndex];
+	const double cursorKey = currentCursorKey();
+	updateTimeWindow(chart, cursorKey, false);
+	updateTimeCursor(chart, cursorKey);
+	trimSeriesOutsideWindow(chart);
+	updateValueAxisFromVisible(chart);
 }
 
 void ChartsPanel::onSeriesRemoved(int chartIndex, const QString& label)
@@ -463,53 +479,192 @@ void ChartsPanel::onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying)
 	if (!storage && livePlayer && m_player) storage = m_player->storage();
 	if (!storage) return;
 
+	const double cursorKey = currentCursorKey();
+
 	for (int chartIndex = 0; chartIndex < m_charts.count(); ++chartIndex)
 	{
 		auto& chart = m_charts[chartIndex];
 		for (auto key : chart.seriesMap.keys())
 		{
 			auto* data = storage->findHistoryItemByFullName(key);
-			if (seekUpdate) rebuildSeriesFromHistory(chartIndex, key, data);
-			else updateSeries(chartIndex, key, data, isBackPlaying);
+			if (seekUpdate)
+			{
+				// Не clearData: при движении назад уже построенный график сохраняется
+				syncSeriesFromHistory(chartIndex, key, data);
+			}
+			else
+			{
+				updateSeries(chartIndex, key, data, isBackPlaying);
+			}
+		}
+
+		updateTimeWindow(chart, cursorKey, livePlayer && !seekUpdate);
+		updateTimeCursor(chart, cursorKey);
+		trimSeriesOutsideWindow(chart);
+		if (seekUpdate || !livePlayer)
+		{
+			updateValueAxisFromVisible(chart);
 		}
 		if (chart.view) chart.view->replot(QCustomPlot::rpQueued);
 	}
 }
 
-void ChartsPanel::rebuildSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data)
+double ChartsPanel::currentCursorKey() const
+{
+	if (m_player && m_player->currentPosition().isValid())
+	{
+		return toPlotKey(m_player->currentPosition());
+	}
+	return 0.0;
+}
+
+void ChartsPanel::createTimeCursor(ChartRuntime& chart)
+{
+	if (!chart.view || chart.timeCursor)
+	{
+		return;
+	}
+
+	auto* rect = new QCPItemRect(chart.view);
+	rect->setClipToAxisRect(true);
+	rect->setPen(Qt::NoPen);
+	rect->setBrush(QColor(40, 110, 200, 70));
+	rect->topLeft->setTypeX(QCPItemPosition::ptPlotCoords);
+	rect->topLeft->setTypeY(QCPItemPosition::ptAxisRectRatio);
+	rect->bottomRight->setTypeX(QCPItemPosition::ptPlotCoords);
+	rect->bottomRight->setTypeY(QCPItemPosition::ptAxisRectRatio);
+	rect->topLeft->setAxes(chart.timeAxis, chart.valueAxis);
+	rect->bottomRight->setAxes(chart.timeAxis, chart.valueAxis);
+	chart.timeCursor = rect;
+	updateTimeCursor(chart, currentCursorKey());
+}
+
+void ChartsPanel::updateTimeCursor(ChartRuntime& chart, double cursorKey)
+{
+	if (!chart.timeCursor)
+	{
+		return;
+	}
+
+	// Узкая полупрозрачная полоса по текущей метке времени
+	const double halfWidth = qMax(visibleSpanSeconds() / 300.0, 0.03);
+	chart.timeCursor->topLeft->setCoords(cursorKey - halfWidth, 0.0);
+	chart.timeCursor->bottomRight->setCoords(cursorKey + halfWidth, 1.0);
+}
+
+void ChartsPanel::updateTimeWindow(ChartRuntime& chart, double cursorKey, bool throttle)
+{
+	const double span = visibleSpanSeconds();
+
+	if (!chart.windowInitialized)
+	{
+		// Курсор у левого края: окно начинается с текущей позиции
+		chart.windowBeginKey = cursorKey;
+		chart.windowInitialized = true;
+	}
+	else if (cursorKey < chart.windowBeginKey)
+	{
+		// Упёрлись в левый край — полоса стоит, окно едет назад
+		chart.windowBeginKey = cursorKey;
+	}
+	else if (cursorKey > chart.windowBeginKey + span)
+	{
+		// Упёрлись в правый край — полоса у правого края, окно едет вперёд
+		chart.windowBeginKey = cursorKey - span;
+	}
+
+	refreshTimeAxisIfNeeded(chart, chart.windowBeginKey, chart.windowBeginKey + span, throttle);
+}
+
+void ChartsPanel::trimSeriesOutsideWindow(ChartRuntime& chart)
+{
+	if (!chart.windowInitialized)
+	{
+		return;
+	}
+
+	const double span = visibleSpanSeconds();
+	const double keepBefore = chart.windowBeginKey - span;
+	const double keepAfter = chart.windowBeginKey + span * 2.0;
+
+	for (auto graph : chart.seriesMap)
+	{
+		if (!graph || graph->data()->isEmpty())
+		{
+			continue;
+		}
+		graph->removeDataBefore(keepBefore);
+		graph->removeDataAfter(keepAfter);
+	}
+}
+
+void ChartsPanel::updateValueAxisFromVisible(ChartRuntime& chart)
+{
+	if (!chart.valueAxis || !chart.windowInitialized)
+	{
+		return;
+	}
+
+	const double beginKey = chart.windowBeginKey;
+	const double endKey = chart.windowBeginKey + visibleSpanSeconds();
+	double localMin = std::numeric_limits<double>::max();
+	double localMax = std::numeric_limits<double>::lowest();
+	bool hasPoints = false;
+
+	for (auto graph : chart.seriesMap)
+	{
+		if (!graph)
+		{
+			continue;
+		}
+		for (const QCPData& point : *graph->data())
+		{
+			if (point.key < beginKey || point.key > endKey)
+			{
+				continue;
+			}
+			localMin = qMin(localMin, point.value);
+			localMax = qMax(localMax, point.value);
+			hasPoints = true;
+		}
+	}
+
+	if (!hasPoints)
+	{
+		return;
+	}
+
+	const double valueRange = localMax - localMin;
+	if (qFuzzyIsNull(valueRange))
+	{
+		chart.valueAxis->setRange(localMin - 1, localMax + 1);
+	}
+	else
+	{
+		chart.valueAxis->setRange(localMin - valueRange * 0.1, localMax + valueRange * 0.1);
+	}
+}
+
+void ChartsPanel::syncSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data)
 {
 	if (!data || chartIndex < 0 || chartIndex >= m_charts.count()) return;
 	auto& chart = m_charts[chartIndex];
 	QCPGraph* graph = chart.seriesMap.value(label);
 	if (!graph) return;
 
-	graph->clearData();
-	appendNumericPoints(graph, data->timestamps(), data->values());
-	if (graph->data()->isEmpty()) return;
+	const auto& times = data->timestamps();
+	const auto& values = data->values();
+	if (times.isEmpty() || values.isEmpty() || times.count() != values.count()) return;
 
-	const double span = visibleSpanSeconds();
-	double endKey = graph->data()->firstKey() + span;
-	if (m_player) endKey = qMax(endKey, toPlotKey(m_player->currentPosition()));
-	const double beginKey = endKey - span;
-	graph->removeDataBefore(beginKey);
-	graph->removeDataAfter(endKey);
-	refreshTimeAxisIfNeeded(chart, beginKey, endKey, false);
-
-	if (chart.valueAxis && !graph->data()->isEmpty())
+	// Дописываем недостающие точки; уже нарисованные не трогаем
+	for (int i = 0; i < times.count(); ++i)
 	{
-		double localMin = std::numeric_limits<double>::max();
-		double localMax = std::numeric_limits<double>::lowest();
-		for (const QCPData& point : *graph->data())
-		{
-			localMin = qMin(localMin, point.value);
-			localMax = qMax(localMax, point.value);
-		}
-		if (localMin <= localMax)
-		{
-			const double valueRange = localMax - localMin;
-			if (qFuzzyIsNull(valueRange)) chart.valueAxis->setRange(localMin - 1, localMax + 1);
-			else chart.valueAxis->setRange(localMin, localMax);
-		}
+		bool ok = false;
+		const double y = values[i].toDouble(&ok);
+		if (!ok) continue;
+		const double key = toPlotKey(times[i]);
+		if (graph->data()->contains(key)) continue;
+		graph->addData(key, y);
 	}
 }
 
@@ -524,14 +679,9 @@ void ChartsPanel::updateSeries(int chartIndex, const QString& label, ParameterTr
 	const auto& values = data->values();
 	if (times.isEmpty() || values.isEmpty()) return;
 
-	const bool throttleAxis = isLivePlayer();
 	if (graph->data()->isEmpty())
 	{
 		appendNumericPoints(graph, times, values);
-		if (!graph->data()->isEmpty())
-		{
-			refreshTimeAxisIfNeeded(chart, graph->data()->firstKey(), graph->data()->lastKey(), throttleAxis);
-		}
 		return;
 	}
 
@@ -553,12 +703,7 @@ void ChartsPanel::updateSeries(int chartIndex, const QString& label, ParameterTr
 		graph->addData(key, y);
 	}
 
-	if (isBackPlaying) graph->removeDataAfter(graph->data()->firstKey() + visibleSpanSeconds());
-	else graph->removeDataBefore(graph->data()->lastKey() - visibleSpanSeconds());
-	if (graph->data()->isEmpty()) return;
-
-	refreshTimeAxisIfNeeded(chart, graph->data()->firstKey(), graph->data()->lastKey(), throttleAxis);
-
+	// Живой режим: расширяем Y только по новым точкам
 	double localMin = std::numeric_limits<double>::max();
 	double localMax = std::numeric_limits<double>::lowest();
 	bool hasNew = false;

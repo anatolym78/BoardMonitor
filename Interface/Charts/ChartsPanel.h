@@ -37,7 +37,10 @@ public:
 		QMap<QString, QPointer<QCPGraph>> seriesMap;
 		QPointer<QCPAxis> timeAxis;
 		QPointer<QCPAxis> valueAxis;
+		QPointer<QCPItemRect> timeCursor;
 		bool isAxesInitialized = false;
+		bool windowInitialized = false;
+		double windowBeginKey = 0.0;
 		double lastAxisEndKey = 0.0;
 		qint64 lastAxisUpdateMs = 0;
 	};
@@ -66,7 +69,7 @@ private:
 	void fillSeriesFromStorage(int chartIndex, const QString& label);
 
 	void updateSeries(int chartIndex, const QString& label, ParameterTreeHistoryItem* data, bool isBackPlaying);
-	void rebuildSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data);
+	void syncSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data);
 	void filterDataOutsideRange(
 		const QList<QDateTime>& times,
 		const QList<QVariant>& values,
@@ -75,6 +78,13 @@ private:
 		bool isBackPlaying,
 		QList<QDateTime>& outTimes,
 		QList<QVariant>& outValues) const;
+
+	void createTimeCursor(ChartRuntime& chart);
+	void updateTimeCursor(ChartRuntime& chart, double cursorKey);
+	void updateTimeWindow(ChartRuntime& chart, double cursorKey, bool throttle);
+	void trimSeriesOutsideWindow(ChartRuntime& chart);
+	void updateValueAxisFromVisible(ChartRuntime& chart);
+	double currentCursorKey() const;
 
 	void updateCellSizes();
 	void relayoutChartsGrid();
