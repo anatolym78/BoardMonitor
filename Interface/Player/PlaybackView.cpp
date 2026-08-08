@@ -196,7 +196,8 @@ void PlaybackView::setPlayer(DataPlayer* player)
 
 	if (!m_player->isPlayable())
 	{
-		m_playPauseButton->setVisible(false);
+		// Live: пауза нужна (заморозка курсора на MVP-шкале), стоп — нет
+		m_playPauseButton->setVisible(true);
 		m_stopButton->setVisible(false);
 	}
 	else

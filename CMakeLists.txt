@@ -121,6 +121,37 @@ set(
 #     )
 
 set(
+    MVC_SOURCES
+    Mvc/BaseDoc.cpp
+    Mvc/BaseDoc.h
+    Mvc/BaseDocTemplate.cpp
+    Mvc/BaseDocTemplate.h
+    Mvc/BaseView.cpp
+    Mvc/BaseView.h
+    Mvc/BaseView.ui
+    Mvc/DocTemplate.cpp
+    Mvc/DocTemplate.h
+    Mvc/DocumentNavigator.cpp
+    Mvc/DocumentNavigator.h
+    Mvc/Presenter.cpp
+    Mvc/Presenter.h
+    Mvc/PointsDoc.cpp
+    Mvc/PointsDoc.h
+    Mvc/PointsDocTemplate.cpp
+    Mvc/PointsDocTemplate.h
+    Mvc/PointsPresenter.cpp
+    Mvc/PointsPresenter.h
+    Mvc/PlayerDocument.cpp
+    Mvc/PlayerDocument.h
+    Mvc/PlayerPresenter.cpp
+    Mvc/PlayerPresenter.h
+    Mvc/PlayerTemplate.cpp
+    Mvc/PlayerTemplate.h
+    Mvc/PlayerView.cpp
+    Mvc/PlayerView.h
+    )
+
+set(
     MODEL_SOURCES
     Model/DriverAdapter.cpp
     Model/DriverAdapter.h
@@ -176,6 +207,7 @@ set(
     ${INTERFACE_SOURCES}
     ${VIEWMODEL_SOURCES}
     ${MODEL_SOURCES}
+    ${MVC_SOURCES}
     ${SERVICE_SOURCES}
     ${CUSTOM_PLOT}
     )

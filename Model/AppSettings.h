@@ -35,7 +35,7 @@ public:
 	PlayerTimeDisplayMode playerTimeDisplayMode() const { return m_playerTimeDisplayMode; }
 	void setPlayerTimeDisplayMode(PlayerTimeDisplayMode mode);
 
-	/** Показывать вертикальный курсор времени на графиках записей (для live всегда скрыт). */
+	/** Показывать вертикальный курсор времени на графиках. */
 	bool chartsShowTimeCursor() const { return m_chartsShowTimeCursor; }
 	void setChartsShowTimeCursor(bool enabled);
 

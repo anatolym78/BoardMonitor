@@ -221,7 +221,7 @@ bool ChartsPanel::isLivePlayer() const
 
 bool ChartsPanel::shouldShowTimeCursor() const
 {
-	return m_showTimeCursor && !isLivePlayer();
+	return m_showTimeCursor;
 }
 
 void ChartsPanel::refreshTimeCursorVisibility()

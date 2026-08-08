@@ -2,6 +2,10 @@
 #include "../Telemetry/TelemetryDataView.h"
 #include "../Charts/ChartsPanel.h"
 #include "../Player/PlaybackView.h"
+#include "../../Mvc/PlayerTemplate.h"
+#include "../../Mvc/PlayerDocument.h"
+#include "../../Mvc/PlayerView.h"
+#include "../../ViewModel/DataPlayer.h"
 
 #include <QSplitter>
 #include <QVBoxLayout>
@@ -11,6 +15,7 @@
 #include <QHBoxLayout>
 #include <QTimer>
 #include <QResizeEvent>
+#include <QIcon>
 #include "../../Model/Parameters/Tree/ParameterTreeStorage.h"
 #include "../../ViewModel/DriverDataPlayer.h"
 
@@ -53,6 +58,19 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	m_chartsPanel = new ChartsPanel(this);
 	m_playerView = new PlaybackView(this);
 
+	auto* playerHost = new QWidget(this);
+	auto* playerColumn = new QVBoxLayout(playerHost);
+	playerColumn->setContentsMargins(0, 0, 0, 0);
+	playerColumn->setSpacing(0);
+	playerColumn->addWidget(m_playerView);
+
+	m_playerTemplate = new PlayerTemplate(this);
+	m_playerTemplate->create(playerHost);
+	if (auto* strip = m_playerTemplate->playerView())
+	{
+		playerColumn->addWidget(strip);
+	}
+
 	auto* sessionTabs = new QTabWidget(this);
 	sessionTabs->addTab(m_chartsPanel, tr("Графики"));
 	sessionTabs->addTab(new QWidget(this), tr("Траектория"));
@@ -69,7 +87,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	mainLayout->setContentsMargins(0, 0, 0, 0);
 	mainLayout->setSpacing(0);
 	mainLayout->addWidget(splitter, 1);
-	mainLayout->addWidget(m_playerView);
+	mainLayout->addWidget(playerHost);
 
 	m_layoutSettleTimer = new QTimer(this);
 	m_layoutSettleTimer->setSingleShot(true);
@@ -87,15 +105,13 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	attachModels(m_session);
 
 	connect(m_parametersTree, &TelemetryDataView::itemHovered, m_chartsPanel, &ChartsPanel::onParameterItemHovered);
-
 }
 
 void SessionWorkspace::attachModels(Session* session)
 {
 	auto model = session->parametersModel();
 	m_parametersTree->setModel(model);
-	
-	// Устанавливаем selectionModel из Session в представление
+
 	auto selectionModel = session->parametersSelectionModel();
 	if (selectionModel)
 	{
@@ -104,12 +120,71 @@ void SessionWorkspace::attachModels(Session* session)
 
 	m_chartsPanel->setModel(session->chartsModel());
 
-	// Подключаем плеер к PlayerView и к панели графиков
 	if (session->player())
 	{
 		m_playerView->setPlayer(session->player());
 		m_chartsPanel->setPlayer(session->player());
+
+		connect(session->player(), &DataPlayer::elapsedTimeChanged,
+			this, &SessionWorkspace::syncPlayerTimeline);
+		connect(session->player(), &DataPlayer::sessionDurationChanged,
+			this, &SessionWorkspace::syncPlayerTimeline);
+		connect(session->player(), &DataPlayer::currentPositionChanged,
+			this, &SessionWorkspace::syncPlayerTimeline);
+		connect(session->player(), &DataPlayer::isPlayingChanged,
+			this, &SessionWorkspace::syncPlayerTimeline);
+
+		if (auto* doc = m_playerTemplate->playerDocument())
+		{
+			connect(doc, &PlayerDocument::cursorSeeked, this, [this](double seconds)
+			{
+				m_frozenPlayerCursorSeconds = seconds;
+				m_playerCursorFrozen = true;
+				if (m_session && m_session->player())
+				{
+					m_session->player()->setElapsedTime(seconds);
+				}
+			});
+		}
+
+		m_playerCursorFrozen = false;
+		syncPlayerTimeline();
 	}
+}
+
+void SessionWorkspace::syncPlayerTimeline()
+{
+	if (!m_session || !m_playerTemplate)
+	{
+		return;
+	}
+
+	auto* doc = m_playerTemplate->playerDocument();
+	auto* player = m_session->player();
+	if (!doc || !player)
+	{
+		return;
+	}
+
+	const double duration = player->sessionDuration();
+	const double elapsed = player->elapsedTime();
+	doc->setPlaying(player->isPlaying());
+
+	if (player->isPlaying())
+	{
+		m_playerCursorFrozen = false;
+		m_frozenPlayerCursorSeconds = elapsed;
+		doc->setTimeline(duration, elapsed, elapsed);
+		return;
+	}
+
+	// Пауза: кружок остаётся на месте (или куда его перетащили), playhead идёт с данными
+	if (!m_playerCursorFrozen)
+	{
+		m_frozenPlayerCursorSeconds = elapsed;
+		m_playerCursorFrozen = true;
+	}
+	doc->setTimeline(duration, m_frozenPlayerCursorSeconds, elapsed);
 }
 
 void SessionWorkspace::onShowChartButtonClicked()
@@ -131,15 +206,11 @@ void SessionWorkspace::onHideChartButtonClicked()
 void SessionWorkspace::resizeEvent(QResizeEvent* event)
 {
 	QFrame::resizeEvent(event);
-
-	// Размеры ячеек привязаны к ширине области просмотра, поэтому при растягивании
-	// окна графики пересобирались бы на каждом событии изменения размера
 	pauseChartsUntilLayoutSettles();
 }
 
 void SessionWorkspace::pauseChartsUntilLayoutSettles()
 {
-	// resizeEvent может прийти до окончания конструирования
 	if (!m_layoutSettleTimer)
 	{
 		return;

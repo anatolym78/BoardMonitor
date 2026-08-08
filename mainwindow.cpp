@@ -465,7 +465,7 @@ void MainWindow::setupChartsSettingsMenu(QMenu* settingsMenu)
 	m_chartsShowTimeCursorAction->setCheckable(true);
 	m_chartsShowTimeCursorAction->setChecked(settings.chartsShowTimeCursor());
 	m_chartsShowTimeCursorAction->setToolTip(
-		tr("Vertical time mark on recorded charts. Always hidden for live sessions."));
+		tr("Vertical time mark on charts (live and recorded)."));
 
 	connect(m_chartsShowTimeCursorAction, &QAction::toggled, this, [this](bool checked)
 	{
