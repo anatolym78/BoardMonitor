@@ -3,6 +3,8 @@
 #include "Presenter.h"
 #include "PlayerDocument.h"
 
+#include <QRectF>
+
 class PlayerPresenter : public Presenter
 {
 public:
@@ -24,8 +26,9 @@ private:
 	PlayerDocument* playerDoc() { return static_cast<PlayerDocument*>(getDoc()); }
 	double timeToX(double seconds, double duration, double width) const;
 	double xToTime(double x, double duration, double width) const;
-	double baseRadius() const;
-	double drawRadius() const;
+	double thumbHalf() const;
+	double thumbHalfHeight() const;
+	QRectF thumbRect() const;
 	bool hitCursor(const QPointF& pos) const;
 	void updateHover(const QPointF& pos);
 	void scrubToX(double x);

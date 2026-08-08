@@ -7,11 +7,14 @@
 
 namespace
 {
-const QColor kTrackColor(60, 60, 60);
-const QColor kCursorBarColor(46, 160, 67);
-const QColor kPlayheadBarColor(120, 200, 130);
-const QColor kCursorColor(20, 90, 40);
-const double kHoverScale = 1.2;
+const QColor kTrackFill(210, 210, 210);
+const QColor kTrackBorder(150, 150, 150);
+const QColor kProgress(100, 180, 230); // голубая заполненная часть (и слева, и справа на паузе)
+const QColor kThumbFill(45, 125, 210);
+const QColor kThumbBorder(30, 95, 170);
+const QColor kThumbHoverFill(20, 20, 20);
+const QColor kThumbHoverBorder(0, 0, 0);
+const double kSizeBoost = 1.25;
 }
 
 PlayerPresenter::PlayerPresenter()
@@ -34,54 +37,75 @@ Presenter* PlayerPresenter::clone()
 	return p;
 }
 
-double PlayerPresenter::timeToX(double seconds, double duration, double width) const
-{
-	if (duration <= 0.0 || width <= 0.0)
-	{
-		return 0.0;
-	}
-	return (seconds / duration) * width;
-}
-
-double PlayerPresenter::xToTime(double x, double duration, double width) const
-{
-	if (duration <= 0.0 || width <= 0.0)
-	{
-		return 0.0;
-	}
-	return qBound(0.0, (x / width) * duration, duration);
-}
-
-double PlayerPresenter::baseRadius() const
+double PlayerPresenter::thumbHalf() const
 {
 	const auto* view = getView();
 	if (!view)
 	{
-		return 6.0;
+		return 2.0 * kSizeBoost * 1.5;
 	}
-	return qMin(view->height() * 0.35, 7.0);
+	// Ширина ползунка ≈ в 3 раза меньше прежнего квадрата, затем ×1.5
+	return qMin(view->height() * 0.14, 2.7) * kSizeBoost * 1.5;
 }
 
-double PlayerPresenter::drawRadius() const
+double PlayerPresenter::thumbHalfHeight() const
 {
-	const double r = baseRadius();
-	return (m_hover || m_dragging) ? r * kHoverScale : r;
+	const auto* view = getView();
+	if (!view)
+	{
+		return 8.0 * 1.5;
+	}
+	return qMin(view->height() * 0.45, 10.0) * 1.5;
 }
 
-bool PlayerPresenter::hitCursor(const QPointF& pos) const
+double PlayerPresenter::timeToX(double seconds, double duration, double width) const
+{
+	const double half = thumbHalf();
+	const double span = qMax(1.0, width - 2.0 * half);
+	if (duration <= 0.0)
+	{
+		return half;
+	}
+	const double t = qBound(0.0, seconds / duration, 1.0);
+	return half + t * span;
+}
+
+double PlayerPresenter::xToTime(double x, double duration, double width) const
+{
+	const double half = thumbHalf();
+	const double span = qMax(1.0, width - 2.0 * half);
+	if (duration <= 0.0)
+	{
+		return 0.0;
+	}
+	const double t = qBound(0.0, (x - half) / span, 1.0);
+	return t * duration;
+}
+
+QRectF PlayerPresenter::thumbRect() const
 {
 	const auto* view = getView();
 	const auto* doc = static_cast<const PlayerDocument*>(getDoc());
 	if (!view || !doc)
 	{
-		return false;
+		return {};
 	}
 
+	const double halfW = thumbHalf();
+	const double halfH = thumbHalfHeight();
 	const double cursorX = timeToX(doc->cursorSeconds(), doc->durationSeconds(), view->width());
-	const QPointF center(cursorX, view->height() * 0.5);
-	const double hitR = baseRadius() * kHoverScale + 4.0;
-	const QPointF d = pos - center;
-	return (d.x() * d.x() + d.y() * d.y()) <= hitR * hitR;
+	const double cy = view->height() * 0.5;
+	return QRectF(cursorX - halfW, cy - halfH, halfW * 2.0, halfH * 2.0);
+}
+
+bool PlayerPresenter::hitCursor(const QPointF& pos) const
+{
+	const QRectF thumb = thumbRect();
+	if (thumb.isNull())
+	{
+		return false;
+	}
+	return thumb.adjusted(-3.0, -3.0, 3.0, 3.0).contains(pos);
 }
 
 void PlayerPresenter::updateHover(const QPointF& pos)
@@ -92,12 +116,6 @@ void PlayerPresenter::updateHover(const QPointF& pos)
 		return;
 	}
 	m_hover = hover;
-	if (auto* view = getView())
-	{
-		auto* doc = playerDoc();
-		const bool canDrag = doc && !doc->isPlaying();
-		view->setCursor(hover && canDrag ? Qt::OpenHandCursor : Qt::ArrowCursor);
-	}
 	refreshView();
 }
 
@@ -138,7 +156,6 @@ void PlayerPresenter::mousePress(QMouseEvent* e)
 	doc->beginCursorDrag();
 	if (auto* view = getView())
 	{
-		view->setCursor(Qt::ClosedHandCursor);
 		view->grabMouse();
 	}
 	scrubToX(e->localPos().x());
@@ -170,8 +187,6 @@ void PlayerPresenter::mouseRelease(QMouseEvent* e)
 	if (auto* view = getView())
 	{
 		view->releaseMouse();
-		const bool canDrag = playerDoc() && !playerDoc()->isPlaying();
-		view->setCursor(m_hover && canDrag ? Qt::OpenHandCursor : Qt::ArrowCursor);
 	}
 	refreshView();
 }
@@ -187,10 +202,6 @@ void PlayerPresenter::mouseLeave()
 		return;
 	}
 	m_hover = false;
-	if (auto* view = getView())
-	{
-		view->setCursor(Qt::ArrowCursor);
-	}
 	refreshView();
 }
 
@@ -205,32 +216,41 @@ void PlayerPresenter::drawCore(QPainter& painter)
 
 	const double w = view->width();
 	const double h = view->height();
-	drawBackground(painter, kTrackColor);
-
 	const double duration = doc->durationSeconds();
 	const double cursorX = timeToX(doc->cursorSeconds(), duration, w);
 	const double playheadX = timeToX(doc->playheadSeconds(), duration, w);
 
-	const double barH = qMax(4.0, h * 0.35);
+	const double barH = qMax(3.0, h * 0.22);
 	const double barY = (h - barH) * 0.5;
-	const double radius = drawRadius();
+	const QRectF trackRect(0.0, barY, w, barH);
 
-	if (cursorX > 0.0)
+	painter.setRenderHint(QPainter::Antialiasing, true);
+
+	// Тонкая серая дорожка с рамкой (как у обычного QSlider)
+	painter.setPen(QPen(kTrackBorder, 1.0));
+	painter.setBrush(kTrackFill);
+	painter.drawRect(trackRect);
+
+	// Слева от ползунка — голубая заполненная часть
+	if (cursorX > 1.0)
 	{
 		painter.setPen(Qt::NoPen);
-		painter.setBrush(kCursorBarColor);
-		painter.drawRoundedRect(QRectF(0.0, barY, cursorX, barH), 2.0, 2.0);
+		painter.setBrush(kProgress);
+		painter.drawRect(QRectF(0.0, barY, cursorX, barH));
 	}
 
+	// На паузе live: справа от ползунка растёт та же голубая полоса (playhead)
 	if (playheadX > cursorX + 0.5)
 	{
 		painter.setPen(Qt::NoPen);
-		painter.setBrush(kPlayheadBarColor);
-		painter.drawRoundedRect(QRectF(cursorX, barY, playheadX - cursorX, barH), 2.0, 2.0);
+		painter.setBrush(kProgress);
+		painter.drawRect(QRectF(cursorX, barY, playheadX - cursorX, barH));
 	}
 
-	painter.setRenderHint(QPainter::Antialiasing, true);
-	painter.setPen(QPen(QColor(10, 50, 20), 1.0));
-	painter.setBrush(kCursorColor);
-	painter.drawEllipse(QPointF(cursorX, h * 0.5), radius, radius);
+	// Ползунок: узкий синий прямоугольник; при наведении — чёрный
+	const QRectF thumb = thumbRect();
+	const bool hot = m_hover || m_dragging;
+	painter.setPen(QPen(hot ? kThumbHoverBorder : kThumbBorder, 1.0));
+	painter.setBrush(hot ? kThumbHoverFill : kThumbFill);
+	painter.drawRect(thumb);
 }
