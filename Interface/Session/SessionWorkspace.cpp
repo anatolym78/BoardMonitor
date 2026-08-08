@@ -162,6 +162,7 @@ void SessionWorkspace::syncPlayerTimeline()
 
 	const double duration = player->sessionDuration();
 	const double elapsed = player->elapsedTime();
+	doc->setLiveMode(qobject_cast<DriverDataPlayer*>(player) != nullptr);
 	doc->setPlaying(player->isPlaying());
 
 	// Запись: данные есть на всём диапазоне — playhead в конце шкалы → вся полоса синяя

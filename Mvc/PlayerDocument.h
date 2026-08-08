@@ -19,9 +19,11 @@ public:
 	double cursorSeconds() const { return m_cursorSeconds; }
 	double playheadSeconds() const { return m_playheadSeconds; }
 	bool isPlaying() const { return m_isPlaying; }
+	bool isLiveMode() const { return m_liveMode; }
 	bool isDragging() const { return m_dragging; }
 
 	void setPlaying(bool playing);
+	void setLiveMode(bool live);
 	void setTimeline(double durationSeconds, double cursorSeconds, double playheadSeconds);
 
 	void beginCursorDrag();
@@ -40,5 +42,6 @@ private:
 	double m_cursorSeconds = 0.0;
 	double m_playheadSeconds = 0.0;
 	bool m_isPlaying = false;
+	bool m_liveMode = false;
 	bool m_dragging = false;
 };

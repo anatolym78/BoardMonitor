@@ -14,6 +14,8 @@ const QColor kThumbFill(45, 125, 210);
 const QColor kThumbBorder(30, 95, 170);
 const QColor kThumbHoverFill(20, 20, 20);
 const QColor kThumbHoverBorder(0, 0, 0);
+const QColor kThumbLockedFill(140, 140, 140);
+const QColor kThumbLockedBorder(100, 100, 100);
 const double kSizeBoost = 1.25;
 }
 
@@ -110,6 +112,17 @@ bool PlayerPresenter::hitCursor(const QPointF& pos) const
 
 void PlayerPresenter::updateHover(const QPointF& pos)
 {
+	auto* doc = playerDoc();
+	if (doc && doc->isLiveMode() && doc->isPlaying())
+	{
+		if (m_hover)
+		{
+			m_hover = false;
+			refreshView();
+		}
+		return;
+	}
+
 	const bool hover = hitCursor(pos);
 	if (hover == m_hover)
 	{
@@ -141,7 +154,13 @@ void PlayerPresenter::refreshView()
 void PlayerPresenter::mousePress(QMouseEvent* e)
 {
 	auto* doc = playerDoc();
-	if (!doc || doc->isPlaying() || e->button() != Qt::LeftButton)
+	if (!doc || e->button() != Qt::LeftButton)
+	{
+		return;
+	}
+
+	// Live + проигрывание: ползунок серый и недоступен; на паузе — можно двигать
+	if (doc->isLiveMode() && doc->isPlaying())
 	{
 		return;
 	}
@@ -258,10 +277,19 @@ void PlayerPresenter::drawCore(QPainter& painter)
 		}
 	}
 
-	// Ползунок: узкий синий прямоугольник; при наведении — чёрный
+	// Ползунок: live+play — серый и недоступен; иначе синий, при наведении — чёрный
 	const QRectF thumb = thumbRect();
-	const bool hot = m_hover || m_dragging;
-	painter.setPen(QPen(hot ? kThumbHoverBorder : kThumbBorder, 1.0));
-	painter.setBrush(hot ? kThumbHoverFill : kThumbFill);
+	const bool locked = doc->isLiveMode() && doc->isPlaying();
+	const bool hot = !locked && (m_hover || m_dragging);
+	if (locked)
+	{
+		painter.setPen(QPen(kThumbLockedBorder, 1.0));
+		painter.setBrush(kThumbLockedFill);
+	}
+	else
+	{
+		painter.setPen(QPen(hot ? kThumbHoverBorder : kThumbBorder, 1.0));
+		painter.setBrush(hot ? kThumbHoverFill : kThumbFill);
+	}
 	painter.drawRect(thumb);
 }

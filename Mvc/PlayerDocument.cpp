@@ -9,7 +9,22 @@ PlayerDocument::PlayerDocument(QObject* parent)
 
 void PlayerDocument::setPlaying(bool playing)
 {
+	if (m_isPlaying == playing)
+	{
+		return;
+	}
 	m_isPlaying = playing;
+	updateViews();
+}
+
+void PlayerDocument::setLiveMode(bool live)
+{
+	if (m_liveMode == live)
+	{
+		return;
+	}
+	m_liveMode = live;
+	updateViews();
 }
 
 void PlayerDocument::setTimeline(double durationSeconds, double cursorSeconds, double playheadSeconds)
