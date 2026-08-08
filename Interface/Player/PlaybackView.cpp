@@ -4,6 +4,7 @@
 #include <QToolButton>
 #include <QSlider>
 #include <QLabel>
+#include <QSizePolicy>
 #include <QTime>
 #include "../../ViewModel/DataPlayer.h"
 
@@ -23,12 +24,13 @@ PlaybackView::PlaybackView(QWidget *parent)
 	m_stopButton->setToolTip(tr("Stop"));
 	m_stopButton->setAutoRaise(true);
 
-
 	m_positionSlider = new QSlider(Qt::Horizontal, this);
 	m_positionSlider->setMinimum(0);
 	m_positionSlider->setMaximum(100);
 	m_positionSlider->setSingleStep(1);
 	m_positionSlider->setPageStep(1);
+	// Исходный слайдер скрыт — шкала времени через MVP PlayerView
+	m_positionSlider->hide();
 
 	m_infoLabel = new QLabel(this);
 	auto font = QFont();
@@ -36,13 +38,13 @@ PlaybackView::PlaybackView(QWidget *parent)
 	m_infoLabel->setFont(font);
 	m_infoLabel->setText("00:00 / 00:00");
 
-	QHBoxLayout* mainLayout = new QHBoxLayout(this);
-	mainLayout->addWidget(m_playPauseButton);
-	mainLayout->addWidget(m_stopButton);
-	mainLayout->addWidget(m_positionSlider);
-	mainLayout->addWidget(m_infoLabel);
-	mainLayout->setContentsMargins(5, 5, 5, 5);
-	mainLayout->setSpacing(5);
+	m_mainLayout = new QHBoxLayout(this);
+	m_mainLayout->addWidget(m_playPauseButton);
+	m_mainLayout->addWidget(m_stopButton);
+	m_mainLayout->addWidget(m_positionSlider);
+	m_mainLayout->addWidget(m_infoLabel);
+	m_mainLayout->setContentsMargins(5, 5, 5, 5);
+	m_mainLayout->setSpacing(5);
 
 	connect(m_playPauseButton, &QToolButton::toggled, this, &PlaybackView::onPlayButtonToggled);
 	connect(m_stopButton, &QToolButton::clicked, this, [this]()
@@ -50,15 +52,43 @@ PlaybackView::PlaybackView(QWidget *parent)
 		if (m_player) m_player->stop();
 	});
 
-	connect(m_positionSlider, &QSlider::sliderMoved, this, [this](int value)
+	// Исходный QSlider не используется
+	// connect(m_positionSlider, &QSlider::sliderMoved, this, [this](int value)
+	// {
+	// 	const double elapsedSeconds = sliderToSeconds(value);
+	// 	if (m_player)
+	// 	{
+	// 		m_player->setElapsedTime(elapsedSeconds);
+	// 	}
+	// 	updateInfoLabel(elapsedSeconds, m_player ? m_player->sessionDuration() : 0.0);
+	// });
+}
+
+void PlaybackView::setTimelineStrip(QWidget* strip)
+{
+	if (!strip || !m_mainLayout)
 	{
-		const double elapsedSeconds = sliderToSeconds(value);
-		if (m_player)
-		{
-			m_player->setElapsedTime(elapsedSeconds);
-		}
-		updateInfoLabel(elapsedSeconds, m_player ? m_player->sessionDuration() : 0.0);
-	});
+		return;
+	}
+
+	if (m_timelineStrip == strip)
+	{
+		return;
+	}
+
+	if (m_timelineStrip)
+	{
+		m_mainLayout->removeWidget(m_timelineStrip);
+	}
+
+	m_timelineStrip = strip;
+	m_positionSlider->hide();
+
+	const int infoIndex = m_mainLayout->indexOf(m_infoLabel);
+	m_mainLayout->insertWidget(infoIndex >= 0 ? infoIndex : m_mainLayout->count(),
+		m_timelineStrip, /*stretch*/ 1);
+	m_timelineStrip->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	m_timelineStrip->show();
 }
 
 void PlaybackView::onPlayButtonToggled()
@@ -105,25 +135,24 @@ void PlaybackView::updateSliderRange()
 	const double duration = m_player ? m_player->sessionDuration() : 0.0;
 	const double elapsed = m_player ? m_player->elapsedTime() : 0.0;
 
-	if (m_scrubMode == AppSettings::PlayerScrubMode::Continuous)
-	{
-		// 1 единица слайдера = 1 мс: движение мыши даёт почти непрерывную перемотку
-		m_positionSlider->setMaximum(qMax(0, secondsToSlider(duration)));
-		m_positionSlider->setSingleStep(1);
-		m_positionSlider->setPageStep(1000);
-	}
-	else
-	{
-		// Историческое поведение: диапазон в целых секундах
-		m_positionSlider->setMaximum(qMax(0, secondsToSlider(duration)));
-		m_positionSlider->setSingleStep(1);
-		m_positionSlider->setPageStep(1);
-	}
-
-	if (!m_positionSlider->isSliderDown())
-	{
-		m_positionSlider->setValue(secondsToSlider(elapsed));
-	}
+	// Исходный QSlider не используется
+	// if (m_scrubMode == AppSettings::PlayerScrubMode::Continuous)
+	// {
+	// 	m_positionSlider->setMaximum(qMax(0, secondsToSlider(duration)));
+	// 	m_positionSlider->setSingleStep(1);
+	// 	m_positionSlider->setPageStep(1000);
+	// }
+	// else
+	// {
+	// 	m_positionSlider->setMaximum(qMax(0, secondsToSlider(duration)));
+	// 	m_positionSlider->setSingleStep(1);
+	// 	m_positionSlider->setPageStep(1);
+	// }
+	//
+	// if (!m_positionSlider->isSliderDown())
+	// {
+	// 	m_positionSlider->setValue(secondsToSlider(elapsed));
+	// }
 
 	updateInfoLabel(elapsed, duration);
 }
@@ -150,7 +179,6 @@ double PlaybackView::sliderToSeconds(int value) const
 
 QString PlaybackView::formatDuration(double seconds) const
 {
-	// Длительность и конец записи — без долей секунды, иначе метка перегружена
 	return QTime(0, 0).addSecs(static_cast<int>(seconds)).toString("mm:ss");
 }
 
@@ -206,12 +234,10 @@ void PlaybackView::setPlayer(DataPlayer* player)
 		m_stopButton->setVisible(true);
 	}
 
-	// Начальная инициализация состояния
 	updateSliderRange();
 	m_playPauseButton->setChecked(m_player->isPlaying());
 	onPlayButtonToggled();
 
-	// Управление воспроизведением с кнопки
 	connect(m_playPauseButton, &QToolButton::toggled, this, [this](bool checked)
 	{
 		if (!m_player) return;
@@ -219,7 +245,6 @@ void PlaybackView::setPlayer(DataPlayer* player)
 		else m_player->pause();
 	});
 
-	// Слушаем изменения от плеера
 	connect(m_player, &DataPlayer::isPlayingChanged, this, [this]()
 	{
 		if (!m_player) return;
@@ -252,10 +277,11 @@ void PlaybackView::setPlayer(DataPlayer* player)
 	connect(m_player, &DataPlayer::elapsedTimeChanged, this, [this]()
 	{
 		if (!m_player) return;
-		if (!m_positionSlider->isSliderDown())
-		{
-			m_positionSlider->setValue(secondsToSlider(m_player->elapsedTime()));
-		}
+		// Исходный QSlider не используется
+		// if (!m_positionSlider->isSliderDown())
+		// {
+		// 	m_positionSlider->setValue(secondsToSlider(m_player->elapsedTime()));
+		// }
 		updateInfoLabel(m_player->elapsedTime(), m_player->sessionDuration());
 	});
 }
@@ -272,7 +298,6 @@ void PlaybackView::updateInfoLabel(double elapsedSeconds, double durationSeconds
 		&& m_player
 		&& m_player->sessionEndTime().isValid())
 	{
-		// Текущее / конечное реальное время, длительность записи в скобках
 		m_infoLabel->setText(QString("%1 / %2 (%3)")
 			.arg(formatPosition(elapsedSeconds))
 			.arg(formatAbsoluteTime(m_player->sessionEndTime()))

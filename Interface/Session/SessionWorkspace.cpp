@@ -58,17 +58,11 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	m_chartsPanel = new ChartsPanel(this);
 	m_playerView = new PlaybackView(this);
 
-	auto* playerHost = new QWidget(this);
-	auto* playerColumn = new QVBoxLayout(playerHost);
-	playerColumn->setContentsMargins(0, 0, 0, 0);
-	playerColumn->setSpacing(0);
-	playerColumn->addWidget(m_playerView);
-
 	m_playerTemplate = new PlayerTemplate(this);
-	m_playerTemplate->create(playerHost);
+	m_playerTemplate->create(m_playerView);
 	if (auto* strip = m_playerTemplate->playerView())
 	{
-		playerColumn->addWidget(strip);
+		m_playerView->setTimelineStrip(strip);
 	}
 
 	auto* sessionTabs = new QTabWidget(this);
@@ -87,7 +81,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	mainLayout->setContentsMargins(0, 0, 0, 0);
 	mainLayout->setSpacing(0);
 	mainLayout->addWidget(splitter, 1);
-	mainLayout->addWidget(playerHost);
+	mainLayout->addWidget(m_playerView);
 
 	m_layoutSettleTimer = new QTimer(this);
 	m_layoutSettleTimer->setSingleShot(true);

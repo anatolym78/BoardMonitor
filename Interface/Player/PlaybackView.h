@@ -9,13 +9,13 @@
 class QToolButton;
 class QSlider;
 class QLabel;
+class QHBoxLayout;
 class DataPlayer;
 
 /**
  * @brief Виджет управления воспроизведением.
- * 
- * Предоставляет элементы управления плеером (Play, Pause, Stop, Slider)
- * для навигации по записанным данным сессии.
+ *
+ * Кнопки + MVP-шкала времени (вместо QSlider) + информационная метка.
  */
 class PlaybackView : public QWidget
 {
@@ -25,11 +25,11 @@ public:
 
 	void onPlayButtonToggled();
 
-	// Подключение к модели плеера
 	void setPlayer(DataPlayer* player);
 
-	// Принудительное обновление отображения из текущего состояния плеера
-	// (используется после async-загрузки, когда сигналы могли не дойти)
+	/** Вставить кастомную шкалу (PlayerView) на место скрытого QSlider. */
+	void setTimelineStrip(QWidget* strip);
+
 	void refreshFromPlayer();
 
 	void setScrubMode(AppSettings::PlayerScrubMode mode);
@@ -48,9 +48,11 @@ private:
 	QString formatPosition(double elapsedSeconds) const;
 
 private:
+	QHBoxLayout* m_mainLayout = nullptr;
 	QToolButton* m_playPauseButton;
 	QToolButton* m_stopButton;
 	QSlider* m_positionSlider;
+	QWidget* m_timelineStrip = nullptr;
 	QLabel* m_infoLabel;
 	DataPlayer* m_player = nullptr;
 	AppSettings::PlayerScrubMode m_scrubMode = AppSettings::PlayerScrubMode::DiscreteSecond;
