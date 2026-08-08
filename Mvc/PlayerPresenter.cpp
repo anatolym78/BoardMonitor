@@ -231,20 +231,31 @@ void PlayerPresenter::drawCore(QPainter& painter)
 	painter.setBrush(kTrackFill);
 	painter.drawRect(trackRect);
 
-	// Слева от ползунка — голубая заполненная часть
-	if (cursorX > 1.0)
-	{
-		painter.setPen(Qt::NoPen);
-		painter.setBrush(kProgress);
-		painter.drawRect(QRectF(0.0, barY, cursorX, barH));
-	}
+	painter.setPen(Qt::NoPen);
+	painter.setBrush(kProgress);
 
-	// На паузе live: справа от ползунка растёт та же голубая полоса (playhead)
-	if (playheadX > cursorX + 0.5)
+	// timeToX(duration) = центр ползунка у конца (width - half), не правый край дорожки
+	const bool fillToEnd = duration > 0.0
+		&& doc->playheadSeconds() >= duration - 1e-9;
+	const double progressRight = fillToEnd ? w : playheadX;
+
+	if (fillToEnd)
 	{
-		painter.setPen(Qt::NoPen);
-		painter.setBrush(kProgress);
-		painter.drawRect(QRectF(cursorX, barY, playheadX - cursorX, barH));
+		painter.drawRect(trackRect);
+	}
+	else
+	{
+		// Слева от ползунка — голубая заполненная часть
+		if (cursorX > 1.0)
+		{
+			painter.drawRect(QRectF(0.0, barY, cursorX, barH));
+		}
+
+		// На паузе live: справа от ползунка растёт та же голубая полоса (playhead)
+		if (progressRight > cursorX + 0.5)
+		{
+			painter.drawRect(QRectF(cursorX, barY, progressRight - cursorX, barH));
+		}
 	}
 
 	// Ползунок: узкий синий прямоугольник; при наведении — чёрный

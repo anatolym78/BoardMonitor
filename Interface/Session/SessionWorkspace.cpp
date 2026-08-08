@@ -164,6 +164,14 @@ void SessionWorkspace::syncPlayerTimeline()
 	const double elapsed = player->elapsedTime();
 	doc->setPlaying(player->isPlaying());
 
+	// Запись: данные есть на всём диапазоне — playhead в конце шкалы → вся полоса синяя
+	if (player->isPlayable())
+	{
+		m_playerCursorFrozen = false;
+		doc->setTimeline(duration, elapsed, duration);
+		return;
+	}
+
 	if (player->isPlaying())
 	{
 		m_playerCursorFrozen = false;
@@ -172,7 +180,7 @@ void SessionWorkspace::syncPlayerTimeline()
 		return;
 	}
 
-	// Пауза: кружок остаётся на месте (или куда его перетащили), playhead идёт с данными
+	// Пауза live: кружок остаётся на месте (или куда его перетащили), playhead идёт с данными
 	if (!m_playerCursorFrozen)
 	{
 		m_frozenPlayerCursorSeconds = elapsed;

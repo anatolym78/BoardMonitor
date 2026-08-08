@@ -602,8 +602,14 @@ void ChartsPanel::updateTimeWindow(ChartRuntime& chart, double cursorKey, bool t
 
 	if (!chart.windowInitialized)
 	{
-		// Курсор у левого края: окно начинается с текущей позиции
-		chart.windowBeginKey = cursorKey;
+		// Окно: [текущее время − ширина; текущее время].
+		// Если запись короче ширины — начинаем с начала данных.
+		double begin = cursorKey - span;
+		if (m_player && m_player->sessionStartTime().isValid())
+		{
+			begin = qMax(begin, toPlotKey(m_player->sessionStartTime()));
+		}
+		chart.windowBeginKey = begin;
 		chart.windowInitialized = true;
 	}
 	else if (cursorKey < chart.windowBeginKey)
