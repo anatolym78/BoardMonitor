@@ -6,6 +6,8 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QToolButton>
+#include <QSlider>
+#include <QLabel>
 #include <QIcon>
 #include <QSet>
 #include <algorithm>
@@ -116,12 +118,17 @@ ChartsPanel::ChartsPanel(QWidget* parent)
 	QHBoxLayout* topBarLayout = new QHBoxLayout();
 	topBarLayout->setContentsMargins(2, 2, 2, 0);
 
-	m_toggleColumnButton = new QToolButton(this);
-	m_toggleColumnButton->setIcon(QIcon(":/Resources/icons8-two_column-32.png"));
-	m_toggleColumnButton->setIconSize(QSize(32, 32));
-	m_toggleColumnButton->setToolTip(tr("Switch to two columns"));
-	m_toggleColumnButton->setAutoRaise(true);
-	connect(m_toggleColumnButton, &QToolButton::clicked, this, &ChartsPanel::onToggleColumnClicked);
+	auto* columnsLabel = new QLabel(tr("Columns"), this);
+	m_columnSlider = new QSlider(Qt::Horizontal, this);
+	m_columnSlider->setRange(1, 4);
+	m_columnSlider->setValue(m_columnCount);
+	m_columnSlider->setTickPosition(QSlider::TicksBelow);
+	m_columnSlider->setTickInterval(1);
+	m_columnSlider->setSingleStep(1);
+	m_columnSlider->setPageStep(1);
+	m_columnSlider->setFixedWidth(110);
+	m_columnSlider->setToolTip(tr("Columns: %1").arg(m_columnCount));
+	connect(m_columnSlider, &QSlider::valueChanged, this, &ChartsPanel::onColumnCountChanged);
 
 	QToolButton* mergeButton = new QToolButton(this);
 	mergeButton->setIcon(QIcon(":/Resources/icons8-merge-documents-32.png"));
@@ -130,8 +137,9 @@ ChartsPanel::ChartsPanel(QWidget* parent)
 	mergeButton->setAutoRaise(true);
 	connect(mergeButton, &QToolButton::clicked, this, &ChartsPanel::onMergeChartsClicked);
 
-	topBarLayout->addWidget(m_toggleColumnButton, 0, Qt::AlignLeft);
-	topBarLayout->addSpacing(2);
+	topBarLayout->addWidget(columnsLabel, 0, Qt::AlignLeft | Qt::AlignVCenter);
+	topBarLayout->addWidget(m_columnSlider, 0, Qt::AlignLeft | Qt::AlignVCenter);
+	topBarLayout->addSpacing(8);
 	topBarLayout->addWidget(mergeButton, 0, Qt::AlignLeft);
 	topBarLayout->addStretch(1);
 	mainLayout->addLayout(topBarLayout);
@@ -139,6 +147,7 @@ ChartsPanel::ChartsPanel(QWidget* parent)
 	m_scrollArea = new QScrollArea(this);
 	m_scrollArea->setWidgetResizable(true);
 	m_scrollArea->setFrameShape(QFrame::NoFrame);
+	m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
 	m_scrollContent = new QWidget();
 	m_gridLayout = new QGridLayout(m_scrollContent);
@@ -869,13 +878,27 @@ bool ChartsPanel::eventFilter(QObject* watched, QEvent* event)
 void ChartsPanel::updateCellSizes()
 {
 	if (!m_gridLayout || !m_scrollArea) return;
+
 	const int viewportWidth = m_scrollArea->viewport()->width();
+	const int viewportHeight = m_scrollArea->viewport()->height();
 	const QMargins margins = m_gridLayout->contentsMargins();
 	const int hSpacing = m_gridLayout->horizontalSpacing();
+	const int vSpacing = m_gridLayout->verticalSpacing();
 	const int contentWidth = viewportWidth - margins.left() - margins.right();
-	if (contentWidth <= 0 || m_columnCount <= 0) return;
-	const int cellWidth = (contentWidth - hSpacing * (m_columnCount - 1)) / m_columnCount;
-	if (cellWidth <= 0) return;
+	if (contentWidth <= 0 || viewportHeight <= 0 || m_columnCount <= 0) return;
+
+	const int chartCount = m_charts.count();
+	if (chartCount <= 0)
+	{
+		m_scrollContent->setMinimumHeight(0);
+		return;
+	}
+
+	const int rowCount = (chartCount + m_columnCount - 1) / m_columnCount;
+	const int cellWidth = (contentWidth - hSpacing * qMax(0, m_columnCount - 1)) / m_columnCount;
+	const int cellHeight = preferredRowHeight(viewportHeight);
+	if (cellWidth <= 0 || cellHeight <= 0) return;
+
 	for (int i = 0; i < m_gridLayout->count(); ++i)
 	{
 		if (auto* item = m_gridLayout->itemAt(i))
@@ -883,26 +906,37 @@ void ChartsPanel::updateCellSizes()
 			if (auto* w = item->widget())
 			{
 				w->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-				w->setFixedSize(cellWidth, cellWidth);
+				w->setFixedSize(cellWidth, cellHeight);
 			}
 		}
 	}
+
+	const int totalHeight = margins.top() + margins.bottom()
+		+ rowCount * cellHeight
+		+ vSpacing * qMax(0, rowCount - 1);
+	m_scrollContent->setMinimumHeight(totalHeight);
 	m_scrollContent->adjustSize();
 }
 
-void ChartsPanel::onToggleColumnClicked()
+int ChartsPanel::preferredRowHeight(int viewportHeight) const
 {
-	if (m_columnCount == 1)
+	// ~2 ряда видно в окне; дальше — вертикальный скролл
+	constexpr int kMinRowHeight = 220;
+	const int preferred = qRound(viewportHeight * 0.45);
+	return qMax(kMinRowHeight, preferred);
+}
+
+void ChartsPanel::onColumnCountChanged(int columns)
+{
+	columns = qBound(1, columns, 4);
+	if (m_columnCount == columns)
 	{
-		m_columnCount = 2;
-		m_toggleColumnButton->setIcon(QIcon(":/Resources/icons8-one_column-32.png"));
-		m_toggleColumnButton->setToolTip(tr("Switch to one column"));
+		return;
 	}
-	else
+	m_columnCount = columns;
+	if (m_columnSlider)
 	{
-		m_columnCount = 1;
-		m_toggleColumnButton->setIcon(QIcon(":/Resources/icons8-two_column-32.png"));
-		m_toggleColumnButton->setToolTip(tr("Switch to two columns"));
+		m_columnSlider->setToolTip(tr("Columns: %1").arg(columns));
 	}
 	relayoutChartsGrid();
 }

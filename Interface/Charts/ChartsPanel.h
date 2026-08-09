@@ -18,6 +18,7 @@ class QScrollArea;
 class QGridLayout;
 class QWidget;
 class QToolButton;
+class QSlider;
 class DataPlayer;
 class ParameterTreeStorage;
 
@@ -98,7 +99,7 @@ private:
 	void updateCellSizes();
 	void relayoutChartsGrid();
 	void reindexChartViews();
-	void onToggleColumnClicked();
+	void onColumnCountChanged(int columns);
 	void onMergeChartsClicked();
 
 	ChartView* getChartView(int chartIndex) const;
@@ -107,6 +108,7 @@ private:
 	void restoreSeriesColor(QCPAbstractPlottable* series);
 	bool isLivePlayer() const;
 	double visibleSpanSeconds() const { return 15.0; }
+	int preferredRowHeight(int viewportHeight) const;
 
 	ChartsModel* m_chartsModel = nullptr;
 	DataPlayer* m_player = nullptr;
@@ -115,8 +117,8 @@ private:
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_scrollContent = nullptr;
 	QGridLayout* m_gridLayout = nullptr;
-	QToolButton* m_toggleColumnButton = nullptr;
-	int m_columnCount = 1;
+	QSlider* m_columnSlider = nullptr;
+	int m_columnCount = 2;
 
 	QList<ChartRuntime> m_charts;
 	QMap<QCPAbstractPlottable*, QColor> m_seriesColors;
