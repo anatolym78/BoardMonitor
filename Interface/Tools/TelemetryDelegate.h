@@ -16,6 +16,10 @@ public:
 	explicit TelemetryDelegate(QObject *parent = nullptr);
 
 	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+
+	/** Место под квадрат легенды + отступы (всегда резервируем у History). */
+	static int chartMarkerReserve();
 };
 
 #endif // VALUECOLUMNDELEGATE_H

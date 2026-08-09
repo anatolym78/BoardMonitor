@@ -10,6 +10,7 @@
 #include <QLabel>
 #include <QSignalBlocker>
 #include <QIcon>
+#include <QFontMetrics>
 #include <QSet>
 #include <algorithm>
 #include <limits>
@@ -31,6 +32,72 @@ QDateTime fromPlotKey(double key)
 {
 	return QDateTime::fromMSecsSinceEpoch(static_cast<qint64>(key * 1000.0));
 }
+
+/** Заголовок чарта с переносом по ширине (стандартный QCPPlotTitle рисует одну строку и обрезает края). */
+class ChartPlotTitle : public QCPPlotTitle
+{
+public:
+	explicit ChartPlotTitle(QCustomPlot* parentPlot)
+		: QCPPlotTitle(parentPlot)
+	{
+	}
+
+	ChartPlotTitle(QCustomPlot* parentPlot, const QString& text)
+		: QCPPlotTitle(parentPlot, text)
+	{
+	}
+
+protected:
+	void draw(QCPPainter* painter) override
+	{
+		painter->setFont(mainFont());
+		painter->setPen(QPen(mainTextColor()));
+		const int flags = Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextWordWrap;
+		painter->drawText(mRect, flags, text(), &mTextBoundingRect);
+	}
+
+	QSize minimumSizeHint() const override
+	{
+		QFontMetrics metrics(font());
+		const int textWidth = qMax(40, availableTextWidth());
+		const QRect br = metrics.boundingRect(
+			0, 0, textWidth, 0,
+			Qt::AlignHCenter | Qt::TextWordWrap,
+			text());
+		QSize result = br.size();
+		result.rwidth() += mMargins.left() + mMargins.right();
+		result.rheight() += mMargins.top() + mMargins.bottom();
+		return result;
+	}
+
+	QSize maximumSizeHint() const override
+	{
+		QSize result = minimumSizeHint();
+		result.setWidth(QWIDGETSIZE_MAX);
+		return result;
+	}
+
+private:
+		int availableTextWidth() const
+		{
+			int width = 200;
+			if (mParentPlot)
+			{
+				// Берём наибольшую известную ширину: до первого layout axisRect часто ещё крошечный
+				width = qMax(width, mParentPlot->viewport().width() - 24);
+				width = qMax(width, mParentPlot->width() - 24);
+				if (mParentPlot->axisRect())
+				{
+					width = qMax(width, mParentPlot->axisRect()->width());
+				}
+			}
+			if (mRect.width() > 40)
+			{
+				width = mRect.width();
+			}
+			return width;
+		}
+	};
 
 void applyTimeAxisRange(QCPAxis* axis, double beginKey, double endKey)
 {
@@ -193,6 +260,7 @@ void ChartsPanel::setModel(ChartsModel* chartsModel)
 	connect(m_chartsModel, &ChartsModel::seriesRemoved, this, &ChartsPanel::onSeriesRemoved);
 	connect(m_chartsModel, &ChartsModel::chartRemoved, this, &ChartsPanel::onChartRemoved);
 	connect(m_chartsModel, &ChartsModel::seriesMoved, this, &ChartsPanel::onSeriesMoved);
+	connect(m_chartsModel, &ChartsModel::chartTitleChanged, this, &ChartsPanel::onChartTitleChanged);
 	connect(m_chartsModel, &ChartsModel::selectionChanged, this, &ChartsPanel::onSelectionChanged);
 }
 
@@ -370,14 +438,14 @@ void ChartsPanel::onChartAdded(int chartIndex, ParameterTreeItem* parameter)
 	else if (parameter->type() == ParameterTreeItem::ItemType::Array
 		|| parameter->type() == ParameterTreeItem::ItemType::Group)
 	{
-		chartView->plotLayout()->insertRow(0);
-		chartView->plotLayout()->addElement(0, 0, new QCPPlotTitle(chartView, parameter->fullName()));
 		addHistoryDescendantsToChart(chartIndex, chartView, parameter);
 	}
 
-	chartView->replot(QCustomPlot::rpQueued);
+	// Сначала размер ячейки, потом title — иначе wrap считает по узкому axisRect
 	updateColumnControls();
 	updateCellSizes();
+	setChartTitle(chartIndex, m_chartsModel->chartTitle(chartIndex));
+	chartView->replot(QCustomPlot::rpQueued);
 }
 
 void ChartsPanel::addHistoryDescendantsToChart(int chartIndex, ChartView* chartView, ParameterTreeItem* item)
@@ -498,8 +566,132 @@ void ChartsPanel::onSeriesMoved(int targetChartIndex, const QStringList& labels)
 		}
 	}
 	targetView->setSelected(false);
+	if (m_chartsModel)
+	{
+		setChartTitle(targetChartIndex, m_chartsModel->chartTitle(targetChartIndex));
+	}
 	targetView->replot(QCustomPlot::rpQueued);
 	updateCellSizes();
+}
+
+void ChartsPanel::onChartTitleChanged(int chartIndex, const QString& title)
+{
+	setChartTitle(chartIndex, title);
+}
+
+void ChartsPanel::setChartTitle(int chartIndex, const QString& title)
+{
+	if (chartIndex < 0 || chartIndex >= m_charts.count())
+	{
+		return;
+	}
+
+	auto& chart = m_charts[chartIndex];
+	if (!chart.view || title.isEmpty())
+	{
+		return;
+	}
+
+	const QString wrapped = wrapChartTitle(title, chart.view);
+	if (!chart.plotTitle)
+	{
+		chart.view->plotLayout()->insertRow(0);
+		chart.plotTitle = new ChartPlotTitle(chart.view, wrapped);
+		chart.view->plotLayout()->addElement(0, 0, chart.plotTitle);
+	}
+	else if (chart.plotTitle->text() != wrapped)
+	{
+		chart.plotTitle->setText(wrapped);
+	}
+	chart.view->replot(QCustomPlot::rpQueued);
+}
+
+QString ChartsPanel::wrapChartTitle(const QString& title, ChartView* view, int maxWidthHint) const
+{
+	if (!view || title.isEmpty())
+	{
+		return title;
+	}
+
+	// Не опираемся на axisRect до первого replot — он часто ещё от дефолтного размера
+	int maxWidth = maxWidthHint;
+	if (maxWidth <= 0)
+	{
+		maxWidth = view->width() - 32;
+	}
+	maxWidth = qMax(60, maxWidth);
+
+	QFontMetrics fm(view->font());
+	auto fits = [&](const QString& line) {
+		return fm.horizontalAdvance(line) <= maxWidth;
+	};
+
+	if (fits(title))
+	{
+		return title;
+	}
+
+	auto breakLongToken = [&](const QString& token) -> QStringList {
+		if (fits(token))
+		{
+			return { token };
+		}
+		QStringList parts;
+		QString current;
+		for (const QChar ch : token)
+		{
+			if (!current.isEmpty() && !fits(current + ch))
+			{
+				parts.append(current);
+				current = ch;
+			}
+			else
+			{
+				current += ch;
+			}
+		}
+		if (!current.isEmpty())
+		{
+			parts.append(current);
+		}
+		return parts;
+	};
+
+	const QStringList tokens = title.split(QStringLiteral(", "));
+	QStringList lines;
+	QString current;
+	for (const QString& token : tokens)
+	{
+		const QStringList pieces = breakLongToken(token);
+		for (int i = 0; i < pieces.size(); ++i)
+		{
+			const QString piece = pieces.at(i);
+			const QString candidate = current.isEmpty()
+				? piece
+				: (current + QStringLiteral(", ") + piece);
+
+			if (current.isEmpty() || fits(candidate))
+			{
+				current = candidate;
+			}
+			else
+			{
+				lines.append(current);
+				current = piece;
+			}
+
+			if (i + 1 < pieces.size() && !current.isEmpty())
+			{
+				lines.append(current);
+				current.clear();
+			}
+		}
+	}
+	if (!current.isEmpty())
+	{
+		lines.append(current);
+	}
+	return lines.join(QLatin1Char('\n'));
 }
 
 void ChartsPanel::onSelectionChanged()
@@ -920,6 +1112,31 @@ void ChartsPanel::updateCellSizes()
 		+ vSpacing * qMax(0, rowCount - 1);
 	m_scrollContent->setMinimumHeight(totalHeight);
 	m_scrollContent->adjustSize();
+
+	// Перенос заголовков по фактической ширине ячейки (не по устаревшему axisRect)
+	if (m_chartsModel)
+	{
+		const int titleWidth = qMax(60, cellWidth - 32);
+		for (int i = 0; i < m_charts.count(); ++i)
+		{
+			const QString title = m_chartsModel->chartTitle(i);
+			if (title.isEmpty() || !m_charts[i].view)
+			{
+				continue;
+			}
+			const QString wrapped = wrapChartTitle(title, m_charts[i].view, titleWidth);
+			if (!m_charts[i].plotTitle)
+			{
+				setChartTitle(i, title);
+				continue;
+			}
+			if (m_charts[i].plotTitle->text() != wrapped)
+			{
+				m_charts[i].plotTitle->setText(wrapped);
+				m_charts[i].view->replot(QCustomPlot::rpQueued);
+			}
+		}
+	}
 }
 
 int ChartsPanel::preferredRowHeight(int viewportHeight, int rowCount) const

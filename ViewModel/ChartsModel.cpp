@@ -1,10 +1,17 @@
 #include "ChartsModel.h"
 
+#include "./../Model/Parameters/Tree/ParameterTreeStorage.h"
+
 #include <algorithm>
 
 ChartsModel::ChartsModel(QObject* parent)
 	: QObject(parent)
 {
+}
+
+void ChartsModel::setParameterTree(ParameterTreeStorage* tree)
+{
+	m_tree = tree;
 }
 
 void ChartsModel::collectHistoryItems(ParameterTreeItem* item, QList<ParameterTreeHistoryItem*>& out) const
@@ -52,6 +59,15 @@ QStringList ChartsModel::seriesLabels(int chartIndex) const
 	return m_charts[chartIndex].seriesLabels;
 }
 
+QString ChartsModel::chartTitle(int chartIndex) const
+{
+	if (chartIndex < 0 || chartIndex >= m_charts.count())
+	{
+		return {};
+	}
+	return m_charts[chartIndex].title;
+}
+
 bool ChartsModel::isParameterDisplayed(ParameterTreeItem* parameter) const
 {
 	if (!parameter)
@@ -79,6 +95,140 @@ bool ChartsModel::isParameterDisplayed(ParameterTreeItem* parameter) const
 		}
 	}
 	return true;
+}
+
+QString ChartsModel::formatLeafDisplayName(ParameterTreeItem* item) const
+{
+	if (!item)
+	{
+		return {};
+	}
+
+	auto* parent = item->parentItem();
+	if (parent && parent->type() == ParameterTreeItem::ItemType::Array)
+	{
+		return parent->fullName() + QLatin1Char('[') + item->label() + QLatin1Char(']');
+	}
+	return item->fullName();
+}
+
+QString ChartsModel::formatLeafDisplayName(const QString& fullName) const
+{
+	if (!m_tree)
+	{
+		return fullName;
+	}
+
+	ParameterTreeHistoryItem* item = m_tree->findHistoryItemByFullName(fullName);
+	if (!item)
+	{
+		return fullName;
+	}
+	return formatLeafDisplayName(item);
+}
+
+void ChartsModel::compressNode(ParameterTreeItem* node, QSet<QString>& remaining, QStringList& parts) const
+{
+	if (!node || remaining.isEmpty())
+	{
+		return;
+	}
+
+	if (node->type() == ParameterTreeItem::ItemType::Root)
+	{
+		for (ParameterTreeItem* child : node->children())
+		{
+			compressNode(child, remaining, parts);
+		}
+		return;
+	}
+
+	if (node->type() == ParameterTreeItem::ItemType::History)
+	{
+		const QString name = node->fullName();
+		if (remaining.contains(name))
+		{
+			parts.append(formatLeafDisplayName(node));
+			remaining.remove(name);
+		}
+		return;
+	}
+
+	// Group / Array: целиком → одно имя; иначе — спускаемся к детям
+	QList<ParameterTreeHistoryItem*> allHistory;
+	collectHistoryItems(node, allHistory);
+	if (allHistory.isEmpty())
+	{
+		return;
+	}
+
+	bool allPresent = true;
+	for (ParameterTreeHistoryItem* historyItem : allHistory)
+	{
+		if (!remaining.contains(historyItem->fullName()))
+		{
+			allPresent = false;
+			break;
+		}
+	}
+
+	if (allPresent)
+	{
+		parts.append(node->fullName());
+		for (ParameterTreeHistoryItem* historyItem : allHistory)
+		{
+			remaining.remove(historyItem->fullName());
+		}
+		return;
+	}
+
+	for (ParameterTreeItem* child : node->children())
+	{
+		compressNode(child, remaining, parts);
+	}
+}
+
+QString ChartsModel::buildCompressedTitle(const QStringList& seriesLabels) const
+{
+	if (seriesLabels.isEmpty())
+	{
+		return {};
+	}
+
+	QSet<QString> remaining;
+	for (const QString& label : seriesLabels)
+	{
+		remaining.insert(label);
+	}
+	QStringList parts;
+
+	if (m_tree)
+	{
+		compressNode(m_tree, remaining, parts);
+	}
+
+	// Серии, не найденные в дереве — как есть (с попыткой формата)
+	for (const QString& label : seriesLabels)
+	{
+		if (remaining.contains(label))
+		{
+			parts.append(formatLeafDisplayName(label));
+			remaining.remove(label);
+		}
+	}
+
+	return parts.join(QStringLiteral(", "));
+}
+
+void ChartsModel::refreshChartTitle(int chartIndex)
+{
+	if (chartIndex < 0 || chartIndex >= m_charts.count())
+	{
+		return;
+	}
+
+	m_charts[chartIndex].title = buildCompressedTitle(m_charts[chartIndex].seriesLabels);
+	emit chartTitleChanged(chartIndex, m_charts[chartIndex].title);
 }
 
 void ChartsModel::showParameter(ParameterTreeItem* parameter)
@@ -110,6 +260,7 @@ void ChartsModel::showParameter(ParameterTreeItem* parameter)
 		return;
 	}
 
+	slot.title = buildCompressedTitle(slot.seriesLabels);
 	m_charts.append(slot);
 	emit chartAdded(m_charts.count() - 1, parameter);
 }
@@ -129,6 +280,10 @@ void ChartsModel::removeSeries(const QString& label)
 	{
 		m_charts.removeAt(chartIndex);
 		emit chartRemoved(chartIndex);
+	}
+	else
+	{
+		refreshChartTitle(chartIndex);
 	}
 }
 
@@ -243,6 +398,7 @@ void ChartsModel::mergeSelectedCharts()
 		m_charts[index].seriesLabels.clear();
 	}
 
+	refreshChartTitle(targetChartIndex);
 	emit seriesMoved(targetChartIndex, labelsToMove);
 	removeEmptyCharts();
 	clearSelection();

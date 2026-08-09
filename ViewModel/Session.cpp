@@ -13,6 +13,7 @@ Session::Session(QObject *parent)
 	, m_opened(false)
 {
 	m_parametersSelectionModel = new QItemSelectionModel(m_parametersModel, this);
+	m_chartsModel->setParameterTree(m_treeStorage);
 }
 
 bool Session::operator<(const Session& other) const

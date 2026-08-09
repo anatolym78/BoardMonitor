@@ -40,6 +40,7 @@ public:
 		QPointer<QCPAxis> timeAxis;
 		QPointer<QCPAxis> valueAxis;
 		QPointer<QCPItemRect> timeCursor;
+		QPointer<QCPPlotTitle> plotTitle;
 		bool isAxesInitialized = false;
 		bool valueAxisInitialized = false;
 		double valueEnvelopeLower = 0.0;
@@ -69,12 +70,15 @@ private:
 	void onSeriesRemoved(int chartIndex, const QString& label);
 	void onChartRemoved(int chartIndex);
 	void onSeriesMoved(int targetChartIndex, const QStringList& labels);
+	void onChartTitleChanged(int chartIndex, const QString& title);
 	void onSelectionChanged();
 	void onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying);
 
 	void addSeriesToChart(int chartIndex, ChartView* chartView, ParameterTreeItem* parameter);
 	void addHistoryDescendantsToChart(int chartIndex, ChartView* chartView, ParameterTreeItem* item);
 	void fillSeriesFromStorage(int chartIndex, const QString& label);
+	void setChartTitle(int chartIndex, const QString& title);
+	QString wrapChartTitle(const QString& title, ChartView* view, int maxWidthHint = -1) const;
 
 	void updateSeries(int chartIndex, const QString& label, ParameterTreeHistoryItem* data, bool isBackPlaying);
 	void syncSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data);

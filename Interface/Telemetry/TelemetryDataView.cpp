@@ -19,6 +19,8 @@ TelemetryDataView::TelemetryDataView(QWidget *parent)
 	setSelectionMode(QAbstractItemView::SingleSelection);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setExpandsOnDoubleClick(true);
+	setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
 	header()->hide();
 
@@ -42,8 +44,12 @@ void TelemetryDataView::setModel(QAbstractItemModel* model)
 	model->setHeaderData(0, Qt::Horizontal, tr("label"));
 	model->setHeaderData(1, Qt::Horizontal, tr("value"));
 
+	// Подписи — по содержимому (меняются редко); значения — Stretch, чтобы
+	// живые цифры не дёргали ResizeToContents / горизонтальный скролл.
+	header()->setStretchLastSection(true);
 	header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-	header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+	header()->setSectionResizeMode(1, QHeaderView::Stretch);
+	header()->setMinimumSectionSize(48);
 
 	setItemDelegateForColumn(1, new TelemetryDelegate(this));
 

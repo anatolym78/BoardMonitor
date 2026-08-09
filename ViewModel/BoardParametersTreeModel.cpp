@@ -345,7 +345,10 @@ bool BoardParametersTreeModel::setData(const QModelIndex& index, const QVariant&
 		if (treeItem)
 		{
 			treeItem->setIsChartVisible(value.toBool());
-			emit dataChanged(index, index, { role });
+			// Маркер рисуется в колонке значений — обновляем обе ячейки строки
+			const QModelIndex labelIndex = this->index(index.row(), 0, index.parent());
+			const QModelIndex valueIndex = this->index(index.row(), 1, index.parent());
+			emit dataChanged(labelIndex, valueIndex, { role });
 			return true;
 		}
 	}
