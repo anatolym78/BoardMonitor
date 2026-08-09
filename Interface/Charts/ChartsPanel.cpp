@@ -8,6 +8,7 @@
 #include <QToolButton>
 #include <QSlider>
 #include <QLabel>
+#include <QSignalBlocker>
 #include <QIcon>
 #include <QSet>
 #include <algorithm>
@@ -118,7 +119,7 @@ ChartsPanel::ChartsPanel(QWidget* parent)
 	QHBoxLayout* topBarLayout = new QHBoxLayout();
 	topBarLayout->setContentsMargins(2, 2, 2, 0);
 
-	auto* columnsLabel = new QLabel(tr("Columns"), this);
+	m_columnsLabel = new QLabel(tr("Columns"), this);
 	m_columnSlider = new QSlider(Qt::Horizontal, this);
 	m_columnSlider->setRange(1, 4);
 	m_columnSlider->setValue(m_columnCount);
@@ -129,6 +130,8 @@ ChartsPanel::ChartsPanel(QWidget* parent)
 	m_columnSlider->setFixedWidth(110);
 	m_columnSlider->setToolTip(tr("Columns: %1").arg(m_columnCount));
 	connect(m_columnSlider, &QSlider::valueChanged, this, &ChartsPanel::onColumnCountChanged);
+	m_columnsLabel->hide();
+	m_columnSlider->hide();
 
 	QToolButton* mergeButton = new QToolButton(this);
 	mergeButton->setIcon(QIcon(":/Resources/icons8-merge-documents-32.png"));
@@ -137,7 +140,7 @@ ChartsPanel::ChartsPanel(QWidget* parent)
 	mergeButton->setAutoRaise(true);
 	connect(mergeButton, &QToolButton::clicked, this, &ChartsPanel::onMergeChartsClicked);
 
-	topBarLayout->addWidget(columnsLabel, 0, Qt::AlignLeft | Qt::AlignVCenter);
+	topBarLayout->addWidget(m_columnsLabel, 0, Qt::AlignLeft | Qt::AlignVCenter);
 	topBarLayout->addWidget(m_columnSlider, 0, Qt::AlignLeft | Qt::AlignVCenter);
 	topBarLayout->addSpacing(8);
 	topBarLayout->addWidget(mergeButton, 0, Qt::AlignLeft);
@@ -373,6 +376,7 @@ void ChartsPanel::onChartAdded(int chartIndex, ParameterTreeItem* parameter)
 	}
 
 	chartView->replot(QCustomPlot::rpQueued);
+	updateColumnControls();
 	updateCellSizes();
 }
 
@@ -896,7 +900,7 @@ void ChartsPanel::updateCellSizes()
 
 	const int rowCount = (chartCount + m_columnCount - 1) / m_columnCount;
 	const int cellWidth = (contentWidth - hSpacing * qMax(0, m_columnCount - 1)) / m_columnCount;
-	const int cellHeight = preferredRowHeight(viewportHeight);
+	const int cellHeight = preferredRowHeight(viewportHeight, rowCount);
 	if (cellWidth <= 0 || cellHeight <= 0) return;
 
 	for (int i = 0; i < m_gridLayout->count(); ++i)
@@ -918,17 +922,51 @@ void ChartsPanel::updateCellSizes()
 	m_scrollContent->adjustSize();
 }
 
-int ChartsPanel::preferredRowHeight(int viewportHeight) const
+int ChartsPanel::preferredRowHeight(int viewportHeight, int rowCount) const
 {
-	// ~2 ряда видно в окне; дальше — вертикальный скролл
 	constexpr int kMinRowHeight = 220;
-	const int preferred = qRound(viewportHeight * 0.45);
+	// Одна строка — крупный график; несколько строк — компактнее + скролл
+	const double ratio = (rowCount <= 1) ? 0.90 : 0.45;
+	const int preferred = qRound(viewportHeight * ratio);
 	return qMax(kMinRowHeight, preferred);
+}
+
+void ChartsPanel::updateColumnControls()
+{
+	const int chartCount = m_charts.count();
+	const bool showSlider = chartCount >= 2;
+
+	if (m_columnsLabel)
+	{
+		m_columnsLabel->setVisible(showSlider);
+	}
+	if (m_columnSlider)
+	{
+		m_columnSlider->setVisible(showSlider);
+	}
+
+	if (!showSlider)
+	{
+		m_columnCount = 1;
+		return;
+	}
+
+	const int maxColumns = qMin(4, chartCount);
+	m_columnCount = qBound(1, m_columnCount, maxColumns);
+
+	if (m_columnSlider)
+	{
+		const QSignalBlocker blocker(m_columnSlider);
+		m_columnSlider->setRange(1, maxColumns);
+		m_columnSlider->setValue(m_columnCount);
+		m_columnSlider->setToolTip(tr("Columns: %1").arg(m_columnCount));
+	}
 }
 
 void ChartsPanel::onColumnCountChanged(int columns)
 {
-	columns = qBound(1, columns, 4);
+	const int maxColumns = qMax(1, qMin(4, m_charts.count()));
+	columns = qBound(1, columns, maxColumns);
 	if (m_columnCount == columns)
 	{
 		return;
@@ -949,6 +987,7 @@ void ChartsPanel::onMergeChartsClicked()
 void ChartsPanel::relayoutChartsGrid()
 {
 	if (!m_gridLayout) return;
+	updateColumnControls();
 	QList<ChartView*> views = chartViewList();
 	std::sort(views.begin(), views.end(), [](ChartView* a, ChartView* b) {
 		return a->chartIndex() < b->chartIndex();
