@@ -23,6 +23,12 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QActionGroup>
+#include <QDockWidget>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QStyle>
+#include <QBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
 	: QMainWindow(parent)
@@ -45,10 +51,8 @@ MainWindow::MainWindow(QWidget *parent)
 	connect(ui->buttonSendToBoard, &QToolButton::clicked, this, &MainWindow::sendMessageToBoard);
 	connect(ui->checkboxSendDataImmediately, &QCheckBox::stateChanged, this, &MainWindow::onCheckBoxSetDataImmediately);
 
-	ui->action->setCheckable(true);
-	ui->action->setChecked(ui->consoleDockWidget->isVisible());
-	connect(ui->action, &QAction::toggled, ui->consoleDockWidget, &QWidget::setVisible);
-	connect(ui->consoleDockWidget, &QDockWidget::visibilityChanged, ui->action, &QAction::setChecked);
+	setupConsoleDock();
+	setupSideDock();
 }
 
 MainWindow::~MainWindow()
@@ -288,6 +292,252 @@ SessionListView* MainWindow::sessionsListView() const
 void MainWindow::onCheckBoxSetDataImmediately(int state)
 {
 	ui->uplinkParametersView->setSendDataImmediately(state > 0);
+}
+
+void MainWindow::setupConsoleDock()
+{
+	auto* dock = ui->consoleDockWidget;
+	dock->setAllowedAreas(Qt::BottomDockWidgetArea);
+	addDockWidget(Qt::BottomDockWidgetArea, dock);
+
+	auto* titleBar = new QWidget(dock);
+	auto* layout = new QHBoxLayout(titleBar);
+	layout->setContentsMargins(6, 2, 2, 2);
+	layout->setSpacing(2);
+
+	auto* titleLabel = new QLabel(dock->windowTitle(), titleBar);
+	layout->addWidget(titleLabel, 1);
+
+	m_consoleCollapseButton = new QToolButton(titleBar);
+	m_consoleCollapseButton->setAutoRaise(true);
+	m_consoleCollapseButton->setArrowType(Qt::DownArrow);
+	m_consoleCollapseButton->setToolTip(tr("Collapse"));
+	layout->addWidget(m_consoleCollapseButton);
+
+	auto* closeButton = new QToolButton(titleBar);
+	closeButton->setAutoRaise(true);
+	closeButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+	closeButton->setToolTip(tr("Close"));
+	layout->addWidget(closeButton);
+
+	dock->setTitleBarWidget(titleBar);
+
+	connect(m_consoleCollapseButton, &QToolButton::clicked, this, &MainWindow::toggleConsoleCollapsed);
+	connect(closeButton, &QToolButton::clicked, dock, &QWidget::close);
+
+	ui->action->setCheckable(true);
+	ui->action->setChecked(dock->isVisible());
+	connect(ui->action, &QAction::toggled, dock, &QWidget::setVisible);
+	connect(dock, &QDockWidget::visibilityChanged, this, [this](bool visible)
+	{
+		ui->action->setChecked(visible);
+		if (visible && m_consoleCollapsed)
+		{
+			// После показа из меню снова прижимаем свёрнутую панель к низу
+			QTimer::singleShot(0, this, [this]()
+			{
+				if (!m_consoleCollapsed)
+				{
+					return;
+				}
+				const int titleH = consoleCollapsedHeight();
+				resizeDocks({ui->consoleDockWidget}, {titleH}, Qt::Vertical);
+			});
+		}
+	});
+}
+
+int MainWindow::consoleCollapsedHeight() const
+{
+	auto* dock = ui->consoleDockWidget;
+	if (auto* title = dock->titleBarWidget())
+	{
+		return qMax(title->sizeHint().height(), 22);
+	}
+	return dock->style()->pixelMetric(QStyle::PM_TitleBarHeight) + 4;
+}
+
+void MainWindow::toggleConsoleCollapsed()
+{
+	auto* dock = ui->consoleDockWidget;
+	auto* content = dock->widget();
+	if (!content)
+	{
+		return;
+	}
+
+	if (!m_consoleCollapsed)
+	{
+		m_consoleExpandedHeight = qMax(dock->height(), 120);
+		content->setVisible(false);
+
+		const int titleH = consoleCollapsedHeight();
+		dock->setMinimumHeight(titleH);
+		dock->setMaximumHeight(titleH);
+		resizeDocks({dock}, {titleH}, Qt::Vertical);
+
+		m_consoleCollapsed = true;
+		if (m_consoleCollapseButton)
+		{
+			m_consoleCollapseButton->setArrowType(Qt::UpArrow);
+			m_consoleCollapseButton->setToolTip(tr("Expand"));
+		}
+	}
+	else
+	{
+		dock->setMinimumHeight(0);
+		dock->setMaximumHeight(QWIDGETSIZE_MAX);
+		content->setVisible(true);
+
+		const int h = m_consoleExpandedHeight > 0 ? m_consoleExpandedHeight : 150;
+		resizeDocks({dock}, {h}, Qt::Vertical);
+
+		m_consoleCollapsed = false;
+		if (m_consoleCollapseButton)
+		{
+			m_consoleCollapseButton->setArrowType(Qt::DownArrow);
+			m_consoleCollapseButton->setToolTip(tr("Collapse"));
+		}
+	}
+}
+
+void MainWindow::setupSideDock()
+{
+	auto* dock = ui->sideDockWidget;
+	dock->setAllowedAreas(Qt::RightDockWidgetArea);
+	addDockWidget(Qt::RightDockWidgetArea, dock);
+	dock->setMinimumWidth(220);
+	resizeDocks({dock}, {m_sideExpandedWidth}, Qt::Horizontal);
+
+	rebuildSideDockTitleBar();
+
+	ui->actionSidePanel->setCheckable(true);
+	ui->actionSidePanel->setChecked(dock->isVisible());
+	connect(ui->actionSidePanel, &QAction::toggled, dock, &QWidget::setVisible);
+	connect(dock, &QDockWidget::visibilityChanged, this, [this](bool visible)
+	{
+		ui->actionSidePanel->setChecked(visible);
+		if (visible && m_sideCollapsed)
+		{
+			QTimer::singleShot(0, this, [this]()
+			{
+				if (!m_sideCollapsed)
+				{
+					return;
+				}
+				const int titleW = sideCollapsedWidth();
+				resizeDocks({ui->sideDockWidget}, {titleW}, Qt::Horizontal);
+			});
+		}
+	});
+}
+
+void MainWindow::rebuildSideDockTitleBar()
+{
+	auto* dock = ui->sideDockWidget;
+	QWidget* oldTitle = dock->titleBarWidget();
+
+	auto* titleBar = new QWidget(dock);
+	QBoxLayout* layout = nullptr;
+	if (m_sideCollapsed)
+	{
+		layout = new QVBoxLayout(titleBar);
+		layout->setContentsMargins(2, 6, 2, 2);
+	}
+	else
+	{
+		layout = new QHBoxLayout(titleBar);
+		layout->setContentsMargins(6, 2, 2, 2);
+	}
+	layout->setSpacing(2);
+
+	if (!m_sideCollapsed)
+	{
+		auto* titleLabel = new QLabel(dock->windowTitle(), titleBar);
+		layout->addWidget(titleLabel, 1);
+	}
+
+	m_sideCollapseButton = new QToolButton(titleBar);
+	m_sideCollapseButton->setAutoRaise(true);
+	if (m_sideCollapsed)
+	{
+		m_sideCollapseButton->setArrowType(Qt::LeftArrow);
+		m_sideCollapseButton->setToolTip(tr("Expand"));
+	}
+	else
+	{
+		m_sideCollapseButton->setArrowType(Qt::RightArrow);
+		m_sideCollapseButton->setToolTip(tr("Collapse"));
+	}
+	layout->addWidget(m_sideCollapseButton);
+
+	auto* closeButton = new QToolButton(titleBar);
+	closeButton->setAutoRaise(true);
+	closeButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+	closeButton->setToolTip(tr("Close"));
+	layout->addWidget(closeButton);
+
+	if (m_sideCollapsed)
+	{
+		layout->addStretch(1);
+	}
+
+	dock->setTitleBarWidget(titleBar);
+	delete oldTitle;
+
+	QDockWidget::DockWidgetFeatures features = QDockWidget::DockWidgetMovable;
+	if (m_sideCollapsed)
+	{
+		features |= QDockWidget::DockWidgetVerticalTitleBar;
+	}
+	dock->setFeatures(features);
+
+	connect(m_sideCollapseButton, &QToolButton::clicked, this, &MainWindow::toggleSideCollapsed);
+	connect(closeButton, &QToolButton::clicked, dock, &QWidget::close);
+}
+
+int MainWindow::sideCollapsedWidth() const
+{
+	auto* dock = ui->sideDockWidget;
+	if (auto* title = dock->titleBarWidget())
+	{
+		return qMax(title->sizeHint().width(), 24);
+	}
+	return 24;
+}
+
+void MainWindow::toggleSideCollapsed()
+{
+	auto* dock = ui->sideDockWidget;
+	auto* content = dock->widget();
+	if (!content)
+	{
+		return;
+	}
+
+	if (!m_sideCollapsed)
+	{
+		m_sideExpandedWidth = qMax(dock->width(), 220);
+		content->setVisible(false);
+		m_sideCollapsed = true;
+		rebuildSideDockTitleBar();
+
+		const int titleW = sideCollapsedWidth();
+		dock->setMinimumWidth(titleW);
+		dock->setMaximumWidth(titleW);
+		resizeDocks({dock}, {titleW}, Qt::Horizontal);
+	}
+	else
+	{
+		dock->setMinimumWidth(220);
+		dock->setMaximumWidth(QWIDGETSIZE_MAX);
+		content->setVisible(true);
+		m_sideCollapsed = false;
+		rebuildSideDockTitleBar();
+
+		const int w = m_sideExpandedWidth > 0 ? m_sideExpandedWidth : 360;
+		resizeDocks({dock}, {w}, Qt::Horizontal);
+	}
 }
 
 void MainWindow::setupPluginsMenu()

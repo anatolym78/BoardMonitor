@@ -13,6 +13,7 @@ class BoardStationApp;
 class ChartBuilder;
 class QActionGroup;
 class QMenu;
+class QToolButton;
 class SessionWorkspace;
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -48,6 +49,13 @@ private:
 
 private:
     void onCheckBoxSetDataImmediately(int state);
+    void setupConsoleDock();
+    void toggleConsoleCollapsed();
+    int consoleCollapsedHeight() const;
+    void setupSideDock();
+    void rebuildSideDockTitleBar();
+    void toggleSideCollapsed();
+    int sideCollapsedWidth() const;
     void setupPluginsMenu();
     void setupPlayerSettingsMenu(QMenu* settingsMenu);
     void setupChartsSettingsMenu(QMenu* settingsMenu);
@@ -65,6 +73,12 @@ private:
     QActionGroup* m_playerTimeDisplayActionGroup = nullptr;
     QAction* m_chartsShowTimeCursorAction = nullptr;
     QAction* m_chartsValueAxisExpandOnlyAction = nullptr;
+    QToolButton* m_consoleCollapseButton = nullptr;
+    bool m_consoleCollapsed = false;
+    int m_consoleExpandedHeight = 150;
+    QToolButton* m_sideCollapseButton = nullptr;
+    bool m_sideCollapsed = false;
+    int m_sideExpandedWidth = 360;
 };
 
 #endif // MAINWINDOW_H

@@ -14,7 +14,7 @@
    <string>BoardStation</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="9,4">
+   <layout class="QHBoxLayout" name="horizontalLayout_2">
     <property name="spacing">
      <number>0</number>
     </property>
@@ -33,133 +33,172 @@
     <item>
      <widget class="SessionStackView" name="sessionsStackView"/>
     </item>
-    <item>
-     <widget class="QTabWidget" name="tabWidget">
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="sessionsTab">
-       <attribute name="icon">
-        <iconset>
-         <normaloff>:/Resources/sessions_16.png</normaloff>:/Resources/sessions_16.png</iconset>
-       </attribute>
-       <attribute name="title">
-        <string>Sessions</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <property name="leftMargin">
-           <number>0</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <item>
-           <widget class="QToolButton" name="buttonSaveRecord">
-            <property name="toolTip">
-             <string>Save session</string>
-            </property>
-            <property name="autoRaise">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QToolButton" name="buttonDeleteRecord">
-            <property name="toolTip">
-             <string>Delete session</string>
-            </property>
-            <property name="autoRaise">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer">
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="SessionListView" name="listView"/>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="controlTab">
-       <attribute name="icon">
-        <iconset>
-         <normaloff>:/Resources/control_parameters_16.png</normaloff>:/Resources/control_parameters_16.png</iconset>
-       </attribute>
-       <attribute name="title">
-        <string>Drone control</string>
-       </attribute>
-       <layout class="QGridLayout" name="gridLayout">
-        <item row="0" column="0">
-         <layout class="QHBoxLayout" name="sendButtonLayout">
-          <item>
-           <widget class="QToolButton" name="buttonSendToBoard">
-            <property name="toolTip">
-             <string>Send to drone</string>
-            </property>
-            <property name="autoRaise">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="checkboxSendDataImmediately">
-            <property name="text">
-             <string>Send immediately</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="sendButtonHorizontalSpacer">
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item row="1" column="0">
-         <widget class="UplinkEditorView" name="uplinkParametersView">
-          <property name="alternatingRowColors">
-           <bool>true</bool>
-          </property>
-          <property name="selectionMode">
-           <enum>QAbstractItemView::NoSelection</enum>
-          </property>
-          <property name="selectionBehavior">
-           <enum>QAbstractItemView::SelectItems</enum>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-    </item>
    </layout>
+  </widget>
+  <widget class="QDockWidget" name="sideDockWidget">
+   <property name="floating">
+    <bool>false</bool>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="windowTitle">
+    <string>Sessions</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_Side">
+    <layout class="QVBoxLayout" name="verticalLayout_Side">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QTabWidget" name="tabWidget">
+       <property name="currentIndex">
+        <number>0</number>
+       </property>
+       <widget class="QWidget" name="sessionsTab">
+        <attribute name="icon">
+         <iconset>
+          <normaloff>:/Resources/sessions_16.png</normaloff>:/Resources/sessions_16.png</iconset>
+        </attribute>
+        <attribute name="title">
+         <string>Sessions</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QToolButton" name="buttonSaveRecord">
+             <property name="toolTip">
+              <string>Save session</string>
+             </property>
+             <property name="autoRaise">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="buttonDeleteRecord">
+             <property name="toolTip">
+              <string>Delete session</string>
+             </property>
+             <property name="autoRaise">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer">
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="SessionListView" name="listView"/>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="controlTab">
+        <attribute name="icon">
+         <iconset>
+          <normaloff>:/Resources/control_parameters_16.png</normaloff>:/Resources/control_parameters_16.png</iconset>
+        </attribute>
+        <attribute name="title">
+         <string>Drone control</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout">
+         <item row="0" column="0">
+          <layout class="QHBoxLayout" name="sendButtonLayout">
+           <item>
+            <widget class="QToolButton" name="buttonSendToBoard">
+             <property name="toolTip">
+              <string>Send to drone</string>
+             </property>
+             <property name="autoRaise">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="checkboxSendDataImmediately">
+             <property name="text">
+              <string>Send immediately</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="sendButtonHorizontalSpacer">
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item row="1" column="0">
+          <widget class="UplinkEditorView" name="uplinkParametersView">
+           <property name="alternatingRowColors">
+            <bool>true</bool>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::NoSelection</enum>
+           </property>
+           <property name="selectionBehavior">
+            <enum>QAbstractItemView::SelectItems</enum>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="consoleDockWidget">
    <property name="floating">
     <bool>false</bool>
    </property>
    <property name="features">
-    <set>QDockWidget::NoDockWidgetFeatures</set>
+    <set>QDockWidget::DockWidgetMovable</set>
    </property>
    <property name="windowTitle">
     <string>Console</string>
@@ -204,6 +243,7 @@
      <string>Вид</string>
     </property>
     <addaction name="action"/>
+    <addaction name="actionSidePanel"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -211,6 +251,11 @@
   <action name="action">
    <property name="text">
     <string>Консоль</string>
+   </property>
+  </action>
+  <action name="actionSidePanel">
+   <property name="text">
+    <string>Панель сессий</string>
    </property>
   </action>
  </widget>
