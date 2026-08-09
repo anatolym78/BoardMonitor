@@ -40,6 +40,7 @@ public:
 		QPointer<QCPAxis> timeAxis;
 		QPointer<QCPAxis> valueAxis;
 		QPointer<QCPItemRect> timeCursor;
+		QPointer<QCPItemLine> timeCursorLine;
 		QPointer<QCPPlotTitle> plotTitle;
 		bool isAxesInitialized = false;
 		bool valueAxisInitialized = false;
@@ -119,6 +120,7 @@ private:
 	ChartsModel* m_chartsModel = nullptr;
 	DataPlayer* m_player = nullptr;
 	QMetaObject::Connection m_playConnection;
+	QMetaObject::Connection m_playingConnection;
 
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_scrollContent = nullptr;

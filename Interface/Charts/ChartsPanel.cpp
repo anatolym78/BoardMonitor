@@ -40,11 +40,13 @@ public:
 	explicit ChartPlotTitle(QCustomPlot* parentPlot)
 		: QCPPlotTitle(parentPlot)
 	{
+		applyCompactFont(parentPlot);
 	}
 
 	ChartPlotTitle(QCustomPlot* parentPlot, const QString& text)
 		: QCPPlotTitle(parentPlot, text)
 	{
+		applyCompactFont(parentPlot);
 	}
 
 protected:
@@ -78,26 +80,36 @@ protected:
 	}
 
 private:
-		int availableTextWidth() const
+	void applyCompactFont(QCustomPlot* parentPlot)
+	{
+		// QCP по умолчанию: pointSize * 1.5 Bold — уменьшаем на один шаг
+		const QFont base = parentPlot ? parentPlot->font() : font();
+		const int pointSize = qMax(8, qRound(base.pointSize() * 1.5) - 1);
+		QFont titleFont(base.family(), pointSize, QFont::Bold);
+		setFont(titleFont);
+		setSelectedFont(QFont(base.family(), pointSize + 1, QFont::Bold));
+	}
+
+	int availableTextWidth() const
+	{
+		int width = 200;
+		if (mParentPlot)
 		{
-			int width = 200;
-			if (mParentPlot)
+			// Берём наибольшую известную ширину: до первого layout axisRect часто ещё крошечный
+			width = qMax(width, mParentPlot->viewport().width() - 24);
+			width = qMax(width, mParentPlot->width() - 24);
+			if (mParentPlot->axisRect())
 			{
-				// Берём наибольшую известную ширину: до первого layout axisRect часто ещё крошечный
-				width = qMax(width, mParentPlot->viewport().width() - 24);
-				width = qMax(width, mParentPlot->width() - 24);
-				if (mParentPlot->axisRect())
-				{
-					width = qMax(width, mParentPlot->axisRect()->width());
-				}
+				width = qMax(width, mParentPlot->axisRect()->width());
 			}
-			if (mRect.width() > 40)
-			{
-				width = mRect.width();
-			}
-			return width;
 		}
-	};
+		if (mRect.width() > 40)
+		{
+			width = mRect.width();
+		}
+		return width;
+	}
+};
 
 void applyTimeAxisRange(QCPAxis* axis, double beginKey, double endKey)
 {
@@ -270,12 +282,18 @@ void ChartsPanel::setPlayer(DataPlayer* player)
 	{
 		disconnect(m_playConnection);
 	}
+	if (m_playingConnection)
+	{
+		disconnect(m_playingConnection);
+	}
 	m_player = player;
 	if (!m_player)
 	{
 		return;
 	}
 	m_playConnection = connect(m_player, &DataPlayer::played, this, &ChartsPanel::onPlayed);
+	m_playingConnection = connect(m_player, &DataPlayer::isPlayingChanged,
+		this, &ChartsPanel::refreshTimeCursorVisibility);
 	refreshTimeCursorVisibility();
 }
 
@@ -301,7 +319,16 @@ bool ChartsPanel::isLivePlayer() const
 
 bool ChartsPanel::shouldShowTimeCursor() const
 {
-	return m_showTimeCursor;
+	if (!m_showTimeCursor)
+	{
+		return false;
+	}
+	// Live без паузы: курсор скрыт (совпадает с «сейчас», полоса только мешает)
+	if (isLivePlayer() && m_player && m_player->isPlaying())
+	{
+		return false;
+	}
+	return true;
 }
 
 void ChartsPanel::refreshTimeCursorVisibility()
@@ -312,6 +339,10 @@ void ChartsPanel::refreshTimeCursorVisibility()
 		if (chart.timeCursor)
 		{
 			chart.timeCursor->setVisible(visible);
+		}
+		if (chart.timeCursorLine)
+		{
+			chart.timeCursorLine->setVisible(visible);
 		}
 		if (chart.view)
 		{
@@ -778,7 +809,21 @@ void ChartsPanel::createTimeCursor(ChartRuntime& chart)
 	rect->topLeft->setAxes(chart.timeAxis, chart.valueAxis);
 	rect->bottomRight->setAxes(chart.timeAxis, chart.valueAxis);
 	chart.timeCursor = rect;
-	chart.timeCursor->setVisible(shouldShowTimeCursor());
+
+	auto* line = new QCPItemLine(chart.view);
+	line->setClipToAxisRect(true);
+	line->setPen(QPen(QColor(45, 125, 210), 1.0));
+	line->start->setTypeX(QCPItemPosition::ptPlotCoords);
+	line->start->setTypeY(QCPItemPosition::ptAxisRectRatio);
+	line->end->setTypeX(QCPItemPosition::ptPlotCoords);
+	line->end->setTypeY(QCPItemPosition::ptAxisRectRatio);
+	line->start->setAxes(chart.timeAxis, chart.valueAxis);
+	line->end->setAxes(chart.timeAxis, chart.valueAxis);
+	chart.timeCursorLine = line;
+
+	const bool visible = shouldShowTimeCursor();
+	chart.timeCursor->setVisible(visible);
+	chart.timeCursorLine->setVisible(visible);
 	updateTimeCursor(chart, currentCursorKey());
 }
 
@@ -789,16 +834,27 @@ void ChartsPanel::updateTimeCursor(ChartRuntime& chart, double cursorKey)
 		return;
 	}
 
-	chart.timeCursor->setVisible(shouldShowTimeCursor());
-	if (!chart.timeCursor->visible())
+	const bool visible = shouldShowTimeCursor();
+	chart.timeCursor->setVisible(visible);
+	if (chart.timeCursorLine)
+	{
+		chart.timeCursorLine->setVisible(visible);
+	}
+	if (!visible)
 	{
 		return;
 	}
 
-	// Узкая полупрозрачная полоса по текущей метке времени
-	const double halfWidth = qMax(visibleSpanSeconds() / 300.0, 0.03);
+	// Полупрозрачная полоса + тонкая синяя линия по центру
+	const double halfWidth = qMax(visibleSpanSeconds() / 500.0, 0.02);
 	chart.timeCursor->topLeft->setCoords(cursorKey - halfWidth, 0.0);
 	chart.timeCursor->bottomRight->setCoords(cursorKey + halfWidth, 1.0);
+
+	if (chart.timeCursorLine)
+	{
+		chart.timeCursorLine->start->setCoords(cursorKey, 0.0);
+		chart.timeCursorLine->end->setCoords(cursorKey, 1.0);
+	}
 }
 
 void ChartsPanel::updateTimeWindow(ChartRuntime& chart, double cursorKey, bool throttle)
