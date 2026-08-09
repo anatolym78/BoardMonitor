@@ -161,6 +161,28 @@ void Session::hideChartFromSelectedParameter()
 	qDebug() << "Session::hideChartFromSelectedParameter: removed chart series for parameter" << treeItem->fullName();
 }
 
+void Session::toggleChartAtIndex(const QModelIndex& index)
+{
+	if (!m_chartsModel || !m_parametersModel || !index.isValid())
+	{
+		return;
+	}
+
+	auto* treeItem = static_cast<ParameterTreeItem*>(index.internalPointer());
+	if (!treeItem || treeItem->fullName().isEmpty())
+	{
+		return;
+	}
+
+	if (m_parametersSelectionModel)
+	{
+		m_parametersSelectionModel->setCurrentIndex(index, QItemSelectionModel::ClearAndSelect);
+	}
+
+	m_chartsModel->toggleParameter(treeItem);
+	updateChartVisibilityForSelection(m_parametersModel, m_chartsModel, index);
+}
+
 Session::~Session()
 {
 	// Принудительно останавливаем и удаляем плеер ПЕРЕД автоматическим удалением children,

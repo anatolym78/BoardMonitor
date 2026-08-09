@@ -2,6 +2,7 @@
 #define SESSION_H
 
 #include <QObject>
+#include <QItemSelectionModel>
 #include <QDateTime>
 #include <QString>
 
@@ -58,6 +59,7 @@ public:
 
 	void showChartFromSelectedParameter();
 	void hideChartFromSelectedParameter();
+	void toggleChartAtIndex(const QModelIndex& index);
 
 signals:
 	void sessionChanged();

@@ -98,6 +98,9 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 
 	attachModels(m_session);
 
+	m_parametersTree->setExpandsOnDoubleClick(false);
+	connect(m_parametersTree, &QTreeView::doubleClicked,
+		this, &SessionWorkspace::onParameterDoubleClicked);
 	connect(m_parametersTree, &TelemetryDataView::itemHovered, m_chartsPanel, &ChartsPanel::onParameterItemHovered);
 }
 
@@ -203,6 +206,14 @@ void SessionWorkspace::onHideChartButtonClicked()
 	if (m_session)
 	{
 		m_session->hideChartFromSelectedParameter();
+	}
+}
+
+void SessionWorkspace::onParameterDoubleClicked(const QModelIndex& index)
+{
+	if (m_session)
+	{
+		m_session->toggleChartAtIndex(index);
 	}
 }
 

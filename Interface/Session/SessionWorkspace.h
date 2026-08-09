@@ -3,6 +3,7 @@
 
 #include <QFrame>
 #include <QPointer>
+#include <QModelIndex>
 
 #include "../../ViewModel/Session.h"
 
@@ -39,6 +40,7 @@ protected:
 private slots:
     void onShowChartButtonClicked();
     void onHideChartButtonClicked();
+    void onParameterDoubleClicked(const QModelIndex& index);
     void syncPlayerTimeline();
 
 private:
