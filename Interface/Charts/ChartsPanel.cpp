@@ -286,6 +286,10 @@ void ChartsPanel::setPlayer(DataPlayer* player)
 	{
 		disconnect(m_playingConnection);
 	}
+	if (m_positionConnection)
+	{
+		disconnect(m_positionConnection);
+	}
 	m_player = player;
 	if (!m_player)
 	{
@@ -294,6 +298,9 @@ void ChartsPanel::setPlayer(DataPlayer* player)
 	m_playConnection = connect(m_player, &DataPlayer::played, this, &ChartsPanel::onPlayed);
 	m_playingConnection = connect(m_player, &DataPlayer::isPlayingChanged,
 		this, &ChartsPanel::refreshTimeCursorVisibility);
+	// Queued: не входить в storage/replot из того же стека, что меняет позицию
+	m_positionConnection = connect(m_player, &DataPlayer::currentPositionChanged,
+		this, &ChartsPanel::onDisplayPositionChanged, Qt::QueuedConnection);
 	refreshTimeCursorVisibility();
 }
 
@@ -779,6 +786,53 @@ void ChartsPanel::onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying)
 			updateValueAxisFromVisible(chart);
 		}
 		if (chart.view) chart.view->replot(QCustomPlot::rpQueued);
+	}
+}
+
+void ChartsPanel::onDisplayPositionChanged()
+{
+	if (m_interactionPaused || !m_player)
+	{
+		return;
+	}
+
+	// Во время live-play окно/курсор двигает onPlayed
+	if (isLivePlayer() && m_player->isPlaying())
+	{
+		return;
+	}
+
+	// Recorded: seek уже идёт через SessionPlayer::played(seekUpdate)
+	if (!isLivePlayer())
+	{
+		return;
+	}
+
+	ParameterTreeStorage* storage = m_player->storage();
+	if (!storage)
+	{
+		return;
+	}
+
+	const double cursorKey = currentCursorKey();
+
+	for (int chartIndex = 0; chartIndex < m_charts.count(); ++chartIndex)
+	{
+		auto& chart = m_charts[chartIndex];
+		for (auto key : chart.seriesMap.keys())
+		{
+			auto* data = storage->findHistoryItemByFullName(key);
+			syncSeriesFromHistory(chartIndex, key, data);
+		}
+
+		updateTimeWindow(chart, cursorKey, false);
+		updateTimeCursor(chart, cursorKey);
+		trimSeriesOutsideWindow(chart);
+		updateValueAxisFromVisible(chart);
+		if (chart.view)
+		{
+			chart.view->replot(QCustomPlot::rpQueued);
+		}
 	}
 }
 

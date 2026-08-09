@@ -74,6 +74,8 @@ private:
 	void onChartTitleChanged(int chartIndex, const QString& title);
 	void onSelectionChanged();
 	void onPlayed(ParameterTreeStorage* snapshot, bool isBackPlaying);
+	/** Live-пауза / scrub: окно и курсор следуют за currentPosition (queued). */
+	void onDisplayPositionChanged();
 
 	void addSeriesToChart(int chartIndex, ChartView* chartView, ParameterTreeItem* parameter);
 	void addHistoryDescendantsToChart(int chartIndex, ChartView* chartView, ParameterTreeItem* item);
@@ -121,6 +123,7 @@ private:
 	DataPlayer* m_player = nullptr;
 	QMetaObject::Connection m_playConnection;
 	QMetaObject::Connection m_playingConnection;
+	QMetaObject::Connection m_positionConnection;
 
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_scrollContent = nullptr;

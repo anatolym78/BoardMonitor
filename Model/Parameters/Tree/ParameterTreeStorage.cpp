@@ -162,41 +162,65 @@ ParameterTreeHistoryItem* ParameterTreeStorage::findHistoryItemByFullName(const 
 	return nullptr;
 }
 
+void ParameterTreeStorage::flushNotifications(const PendingNotifications& pending)
+{
+	for (ParameterTreeItem* item : pending.parameterAdded)
+	{
+		emit parameterAdded(item);
+	}
+	for (ParameterTreeHistoryItem* item : pending.valueAdded)
+	{
+		emit valueAdded(item);
+	}
+	for (ParameterTreeHistoryItem* item : pending.valueChanged)
+	{
+		emit valueChanged(item);
+	}
+}
+
 void ParameterTreeStorage::appendSnapshot(ParameterTreeStorage* snapshot)
 {
-	QMutexLocker locker(&m_mutex);
 	if (!snapshot)
 	{
 		return;
 	}
 
-	for (ParameterTreeItem* incomingChild : snapshot->children())
+	PendingNotifications pending;
 	{
-		appendNode(this, incomingChild);
+		QMutexLocker locker(&m_mutex);
+		for (ParameterTreeItem* incomingChild : snapshot->children())
+		{
+			appendNode(this, incomingChild, pending);
+		}
+		// Снимок - это временный объект, который должен быть удален
+		snapshot->deleteLater();
 	}
 
-	// Снимок - это временный объект, который должен быть удален
-	snapshot->deleteLater();
+	flushNotifications(pending);
 }
 
 void ParameterTreeStorage::setSnapshot(ParameterTreeStorage* snapshot)
 {
-	QMutexLocker locker(&m_mutex);
 	if (!snapshot)
 	{
 		return;
 	}
 
-	for (ParameterTreeItem* incomingChild : snapshot->children())
+	PendingNotifications pending;
 	{
-		setNode(this, incomingChild);
+		QMutexLocker locker(&m_mutex);
+		for (ParameterTreeItem* incomingChild : snapshot->children())
+		{
+			setNode(this, incomingChild, pending);
+		}
+		// Снимок - это временный объект, который должен быть удален
+		snapshot->deleteLater();
 	}
 
-	// Снимок - это временный объект, который должен быть удален
-	snapshot->deleteLater();
+	flushNotifications(pending);
 }
 
-void ParameterTreeStorage::appendNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode)
+void ParameterTreeStorage::appendNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, PendingNotifications& pending)
 {
 	ParameterTreeItem* existingNode = localParent->findChildByLabel(incomingNode->label());
 
@@ -220,32 +244,32 @@ void ParameterTreeStorage::appendNode(ParameterTreeItem* localParent, ParameterT
 			newHistoryItem->setMax(incomingHistory->max());
 
 			localParent->appendChild(newHistoryItem);
-			emit parameterAdded(newHistoryItem);
+			pending.parameterAdded.append(newHistoryItem);
 			if (!values.isEmpty())
 			{
-				emit valueAdded(newHistoryItem);
+				pending.valueAdded.append(newHistoryItem);
 			}
 		}
 		else if (incomingNode->type() == ItemType::Group)
 		{
 			auto newGroupItem = new ParameterTreeGroupItem(incomingNode->label(), localParent);
 			localParent->appendChild(newGroupItem);
-			emit parameterAdded(newGroupItem);
+			pending.parameterAdded.append(newGroupItem);
 
 			for(ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				appendNode(newGroupItem, incomingChild);
+				appendNode(newGroupItem, incomingChild, pending);
 			}
 		}
 		else if (incomingNode->type() == ItemType::Array)
 		{
 			auto newArrayItem = new ParameterTreeArrayItem(incomingNode->label(), localParent);
 			localParent->appendChild(newArrayItem);
-			emit parameterAdded(newArrayItem);
+			pending.parameterAdded.append(newArrayItem);
 
 			for(ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				appendNode(newArrayItem, incomingChild);
+				appendNode(newArrayItem, incomingChild, pending);
 			}
 		}
 	}
@@ -280,23 +304,23 @@ void ParameterTreeStorage::appendNode(ParameterTreeItem* localParent, ParameterT
 				existingHistory->setMax(incomingHistory->max());
 			}
 
-			if (hasNewValues) 
+			if (hasNewValues)
 			{
-				 emit valueAdded(existingHistory);
+				pending.valueAdded.append(existingHistory);
 			}
 		}
 		else if (existingNode->type() == ItemType::Group && incomingNode->type() == ItemType::Group)
 		{
 			for (ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				appendNode(existingNode, incomingChild);
+				appendNode(existingNode, incomingChild, pending);
 			}
 		}
 		else if (existingNode->type() == ItemType::Array && incomingNode->type() == ItemType::Array)
 		{
 			for (ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				appendNode(existingNode, incomingChild);
+				appendNode(existingNode, incomingChild, pending);
 			}
 		}
 		else
@@ -319,39 +343,39 @@ void ParameterTreeStorage::appendNode(ParameterTreeItem* localParent, ParameterT
 				}
 
 				localParent->appendChild(newHistoryItem);
-				emit parameterAdded(newHistoryItem);
+				pending.parameterAdded.append(newHistoryItem);
 				if (!values.isEmpty())
 				{
-					emit valueAdded(newHistoryItem);
+					pending.valueAdded.append(newHistoryItem);
 				}
 			}
 			else if (incomingNode->type() == ItemType::Group)
 			{
 				auto newGroupItem = new ParameterTreeGroupItem(incomingNode->label(), localParent);
 				localParent->appendChild(newGroupItem);
-				emit parameterAdded(newGroupItem);
+				pending.parameterAdded.append(newGroupItem);
 
 				for(ParameterTreeItem* incomingChild : incomingNode->children())
 				{
-					appendNode(newGroupItem, incomingChild);
+					appendNode(newGroupItem, incomingChild, pending);
 				}
 			}
 			else if (incomingNode->type() == ItemType::Array)
 			{
 				auto newArrayItem = new ParameterTreeArrayItem(incomingNode->label(), localParent);
 				localParent->appendChild(newArrayItem);
-				emit parameterAdded(newArrayItem);
+				pending.parameterAdded.append(newArrayItem);
 
 				for(ParameterTreeItem* incomingChild : incomingNode->children())
 				{
-					appendNode(newArrayItem, incomingChild);
+					appendNode(newArrayItem, incomingChild, pending);
 				}
 			}
 		}
 	}
 }
 
-void ParameterTreeStorage::setNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode)
+void ParameterTreeStorage::setNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, PendingNotifications& pending)
 {
 	ParameterTreeItem* existingNode = localParent->findChildByLabel(incomingNode->label());
 
@@ -371,32 +395,32 @@ void ParameterTreeStorage::setNode(ParameterTreeItem* localParent, ParameterTree
 			newHistoryItem->setMax(incomingHistory->max());
 
 			localParent->appendChild(newHistoryItem);
-			emit parameterAdded(newHistoryItem);
+			pending.parameterAdded.append(newHistoryItem);
 			if (!incomingHistory->values().isEmpty())
 			{
-				emit valueAdded(newHistoryItem);
+				pending.valueAdded.append(newHistoryItem);
 			}
 		}
 		else if (incomingNode->type() == ItemType::Group)
 		{
 			auto newGroupItem = new ParameterTreeGroupItem(incomingNode->label(), localParent);
 			localParent->appendChild(newGroupItem);
-			emit parameterAdded(newGroupItem);
+			pending.parameterAdded.append(newGroupItem);
 
 			for(ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				setNode(newGroupItem, incomingChild);
+				setNode(newGroupItem, incomingChild, pending);
 			}
 		}
 		else if (incomingNode->type() == ItemType::Array)
 		{
 			auto newArrayItem = new ParameterTreeArrayItem(incomingNode->label(), localParent);
 			localParent->appendChild(newArrayItem);
-			emit parameterAdded(newArrayItem);
+			pending.parameterAdded.append(newArrayItem);
 
 			for(ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				setNode(newArrayItem, incomingChild);
+				setNode(newArrayItem, incomingChild, pending);
 			}
 		}
 	}
@@ -424,20 +448,20 @@ void ParameterTreeStorage::setNode(ParameterTreeItem* localParent, ParameterTree
 				existingHistory->setMax(incomingHistory->max());
 			}
 
-			emit valueChanged(existingHistory);
+			pending.valueChanged.append(existingHistory);
 		}
 		else if (existingNode->type() == ItemType::Group && incomingNode->type() == ItemType::Group)
 		{
 			for(ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				setNode(existingNode, incomingChild);
+				setNode(existingNode, incomingChild, pending);
 			}
 		}
 		else if (existingNode->type() == ItemType::Array && incomingNode->type() == ItemType::Array)
 		{
 			for(ParameterTreeItem* incomingChild : incomingNode->children())
 			{
-				setNode(existingNode, incomingChild);
+				setNode(existingNode, incomingChild, pending);
 			}
 		}
 		else
@@ -456,32 +480,32 @@ void ParameterTreeStorage::setNode(ParameterTreeItem* localParent, ParameterTree
 				newHistoryItem->setValues(incomingHistory->values(), incomingHistory->timestamps());
 
 				localParent->appendChild(newHistoryItem);
-				emit parameterAdded(newHistoryItem);
+				pending.parameterAdded.append(newHistoryItem);
 				if (!incomingHistory->values().isEmpty())
 				{
-					emit valueAdded(newHistoryItem);
+					pending.valueAdded.append(newHistoryItem);
 				}
 			}
 			else if (incomingNode->type() == ItemType::Group)
 			{
 				auto newGroupItem = new ParameterTreeGroupItem(incomingNode->label(), localParent);
 				localParent->appendChild(newGroupItem);
-				emit parameterAdded(newGroupItem);
+				pending.parameterAdded.append(newGroupItem);
 
 				for(ParameterTreeItem* incomingChild : incomingNode->children())
 				{
-					setNode(newGroupItem, incomingChild);
+					setNode(newGroupItem, incomingChild, pending);
 				}
 			}
 			else if (incomingNode->type() == ItemType::Array)
 			{
 				auto newArrayItem = new ParameterTreeArrayItem(incomingNode->label(), localParent);
 				localParent->appendChild(newArrayItem);
-				emit parameterAdded(newArrayItem);
+				pending.parameterAdded.append(newArrayItem);
 
 				for(ParameterTreeItem* incomingChild : incomingNode->children())
 				{
-					setNode(newArrayItem, incomingChild);
+					setNode(newArrayItem, incomingChild, pending);
 				}
 			}
 		}

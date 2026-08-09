@@ -5,6 +5,7 @@
 #include "./ParameterTreeGroupItem.h"
 #include "./../../Parameters/BoardParameterSingle.h"
 #include <QDateTime>
+#include <QList>
 #include <QMutex>
 
 class ParameterTreeHistoryItem;
@@ -35,8 +36,17 @@ signals:
 	void valueChanged(ParameterTreeHistoryItem* updatedItem);
 
 private:
-	void appendNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode);
-	void setNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode);
+	/** Сигналы нельзя слать под m_mutex: слоты часто снова берут этот же lock → deadlock. */
+	struct PendingNotifications
+	{
+		QList<ParameterTreeItem*> parameterAdded;
+		QList<ParameterTreeHistoryItem*> valueAdded;
+		QList<ParameterTreeHistoryItem*> valueChanged;
+	};
+
+	void appendNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, PendingNotifications& pending);
+	void setNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, PendingNotifications& pending);
+	void flushNotifications(const PendingNotifications& pending);
 	void extractNode(ParameterTreeItem* localParent, ParameterTreeItem* incomingNode, const QDateTime& startTime, const QDateTime& endTime, bool exclusiveLowerBound = false) const;
 	void collectParameters(ParameterTreeItem* item, const QDateTime& startTime, const QDateTime& endTime, QList<BoardParameterSingle*>& params) const;
 

@@ -16,6 +16,10 @@ public:
 
 	void setRefreshPaused(bool paused);
 
+	/** Последнее время данных с борта (playhead на паузе); не путать с currentPosition. */
+	QDateTime dataHeadTime() const { return m_dataHeadTime; }
+	double dataHeadElapsed() const;
+
 	Q_INVOKABLE void play() override;
 	Q_INVOKABLE void stop() override;
 	Q_INVOKABLE void pause() override;
@@ -29,6 +33,10 @@ public:
 	Q_INVOKABLE void moveToBegin() override;
 	Q_INVOKABLE void reset() override;
 
+signals:
+	/** Playhead live-сессии сдвинулся (в т.ч. на паузе, когда currentPosition заморожен). */
+	void dataHeadChanged();
+
 protected:
 	void startPlayback() override;
 
@@ -37,6 +45,7 @@ private:
 	void flushRefresh();
 	void extendTimeRangeTo(const QDateTime& latestTimestamp);
 	void emitTimeRangeSignals();
+	void updateDataHead(const QDateTime& timestamp);
 
 	void onStorageValueAdded(ParameterTreeHistoryItem* historyItem);
 
@@ -45,6 +54,7 @@ private:
 	bool m_refreshPaused = false;
 	QTimer* m_refreshTimer = nullptr;
 	QDateTime m_lastConsumedTimestamp;
+	QDateTime m_dataHeadTime;
 
 	static constexpr int REFRESH_INTERVAL_MS = 50;
 	static constexpr double TIME_RANGE = 600.0;

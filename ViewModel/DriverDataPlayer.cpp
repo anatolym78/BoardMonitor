@@ -33,6 +33,29 @@ void DriverDataPlayer::setStorage(ParameterTreeStorage* storage)
 		this, &DriverDataPlayer::onStorageValueAdded);
 }
 
+double DriverDataPlayer::dataHeadElapsed() const
+{
+	if (m_sessionStartTime.isNull() || m_dataHeadTime.isNull())
+	{
+		return 0.0;
+	}
+	return m_sessionStartTime.msecsTo(m_dataHeadTime) / 1000.0;
+}
+
+void DriverDataPlayer::updateDataHead(const QDateTime& timestamp)
+{
+	if (!timestamp.isValid())
+	{
+		return;
+	}
+	if (m_dataHeadTime.isValid() && timestamp <= m_dataHeadTime)
+	{
+		return;
+	}
+	m_dataHeadTime = timestamp;
+	emit dataHeadChanged();
+}
+
 void DriverDataPlayer::onStorageValueAdded(ParameterTreeHistoryItem* historyItem)
 {
 	if (!historyItem)
@@ -54,12 +77,21 @@ void DriverDataPlayer::onStorageValueAdded(ParameterTreeHistoryItem* historyItem
 			m_currentPosition = timestamp;
 		}
 		m_sessionEndTime = timestamp.addSecs(static_cast<int>(TIME_RANGE));
+		m_dataHeadTime = timestamp;
 		m_isInitialized = true;
 		emitTimeRangeSignals();
+		emit dataHeadChanged();
 		play();
 	}
 
 	extendTimeRangeTo(timestamp);
+	updateDataHead(timestamp);
+
+	// На паузе кружок/курсор графиков замирают; playhead растёт через dataHeadChanged
+	if (!m_isPlaying)
+	{
+		return;
+	}
 
 	{
 		QMutexLocker locker(&m_positionMutex);
@@ -67,11 +99,7 @@ void DriverDataPlayer::onStorageValueAdded(ParameterTreeHistoryItem* historyItem
 	}
 	emit currentPositionChanged();
 	emit elapsedTimeChanged();
-
-	if (m_isPlaying)
-	{
-		scheduleRefresh();
-	}
+	scheduleRefresh();
 }
 
 void DriverDataPlayer::play()
@@ -85,10 +113,28 @@ void DriverDataPlayer::play()
 	m_shouldStop = 0;
 	emit isPlayingChanged();
 
-	if (m_isInitialized)
+	if (!m_isInitialized)
 	{
-		scheduleRefresh();
+		return;
 	}
+
+	// После паузы — к актуальной голове данных (без обхода storage под чужим lock)
+	QDateTime head = m_dataHeadTime;
+	if (!head.isValid() && m_storage)
+	{
+		head = m_storage->latestTimestamp();
+	}
+	if (head.isValid())
+	{
+		{
+			QMutexLocker locker(&m_positionMutex);
+			m_currentPosition = head;
+		}
+		emit currentPositionChanged();
+		emit elapsedTimeChanged();
+	}
+
+	scheduleRefresh();
 }
 
 void DriverDataPlayer::stop()
@@ -150,6 +196,7 @@ void DriverDataPlayer::resetState()
 	m_shouldStop = 1;
 	m_isInitialized = false;
 	m_lastConsumedTimestamp = QDateTime();
+	m_dataHeadTime = QDateTime();
 
 	m_sessionStartTime = QDateTime();
 	m_sessionEndTime = QDateTime();
@@ -160,6 +207,7 @@ void DriverDataPlayer::resetState()
 
 	emit isPlayingChanged();
 	emitTimeRangeSignals();
+	emit dataHeadChanged();
 
 	qDebug() << "DriverDataPlayer: State reset - ready for new live session";
 }
@@ -172,6 +220,7 @@ void DriverDataPlayer::reset()
 {
 	m_isInitialized = false;
 	m_lastConsumedTimestamp = QDateTime();
+	m_dataHeadTime = QDateTime();
 }
 
 void DriverDataPlayer::startPlayback()
@@ -230,6 +279,7 @@ void DriverDataPlayer::flushRefresh()
 	}
 
 	m_lastConsumedTimestamp = latest;
+	updateDataHead(latest);
 
 	{
 		QMutexLocker locker(&m_positionMutex);

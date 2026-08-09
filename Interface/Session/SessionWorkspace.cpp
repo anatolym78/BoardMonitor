@@ -131,6 +131,13 @@ void SessionWorkspace::attachModels(Session* session)
 		connect(session->player(), &DataPlayer::isPlayingChanged,
 			this, &SessionWorkspace::syncPlayerTimeline);
 
+		if (auto* livePlayer = qobject_cast<DriverDataPlayer*>(session->player()))
+		{
+			// Playhead на паузе — без latestTimestamp() из valueAdded (раньше давало deadlock)
+			connect(livePlayer, &DriverDataPlayer::dataHeadChanged,
+				this, &SessionWorkspace::syncPlayerTimeline);
+		}
+
 		if (auto* doc = m_playerTemplate->playerDocument())
 		{
 			connect(doc, &PlayerDocument::cursorSeeked, this, [this](double seconds)
@@ -184,13 +191,20 @@ void SessionWorkspace::syncPlayerTimeline()
 		return;
 	}
 
-	// Пауза live: кружок остаётся на месте (или куда его перетащили), playhead идёт с данными
+	// Пауза live: кружок заморожен/скрабится; playhead — голова данных
+	double playhead = elapsed;
+	if (auto* livePlayer = qobject_cast<DriverDataPlayer*>(player))
+	{
+		playhead = qMax(elapsed, livePlayer->dataHeadElapsed());
+	}
+	playhead = qBound(0.0, playhead, duration);
+
 	if (!m_playerCursorFrozen)
 	{
 		m_frozenPlayerCursorSeconds = elapsed;
 		m_playerCursorFrozen = true;
 	}
-	doc->setTimeline(duration, m_frozenPlayerCursorSeconds, elapsed);
+	doc->setTimeline(duration, m_frozenPlayerCursorSeconds, playhead);
 }
 
 void SessionWorkspace::onShowChartButtonClicked()
