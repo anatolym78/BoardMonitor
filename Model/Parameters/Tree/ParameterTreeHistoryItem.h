@@ -17,6 +17,8 @@ public:
     void addValue(const QVariant &value, const QDateTime &timestamp);
     void setValues(const QList<QVariant>& values, const QList<QDateTime>& timestamps);
     QVariant lastValue() const;
+    /** Последнее значение с timestamp ≤ time; пустой QVariant, если точек ещё нет. */
+    QVariant valueAtOrBefore(const QDateTime& time) const;
 
     const QList<QVariant>& values() const;
     const QList<QDateTime>& timestamps() const;

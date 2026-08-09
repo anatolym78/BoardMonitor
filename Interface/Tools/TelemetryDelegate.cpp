@@ -3,6 +3,7 @@
 #include "./../../Model/Parameters/Tree/ParameterTreeItem.h"
 #include <QPainter>
 #include <QApplication>
+#include <QFontMetrics>
 
 namespace
 {
@@ -82,7 +83,17 @@ QSize TelemetryDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
 	auto* treeItem = static_cast<ParameterTreeItem*>(index.internalPointer());
 	if (treeItem && treeItem->type() == ParameterTreeItem::ItemType::History)
 	{
-		size.setWidth(size.width() + chartMarkerReserve());
+		// Колонка значений Stretch: не раздувать ширину дерева из‑за "live (scrub)"
+		if (index.column() == 1)
+		{
+			QFontMetrics fm(option.font);
+			const int typical = fm.horizontalAdvance(QStringLiteral("0000.0000")) + chartMarkerReserve();
+			size.setWidth(typical);
+		}
+		else
+		{
+			size.setWidth(size.width() + chartMarkerReserve());
+		}
 	}
 
 	return size;

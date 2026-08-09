@@ -44,12 +44,17 @@ void TelemetryDataView::setModel(QAbstractItemModel* model)
 	model->setHeaderData(0, Qt::Horizontal, tr("label"));
 	model->setHeaderData(1, Qt::Horizontal, tr("value"));
 
-	// Подписи — по содержимому (меняются редко); значения — Stretch, чтобы
-	// живые цифры не дёргали ResizeToContents / горизонтальный скролл.
-	header()->setStretchLastSection(true);
+	// Подписи — по содержимому; значения — Stretch в оставшейся ширине.
+	// Колонка 2 (control) в дереве сессии не используется — скрываем, иначе
+	// stretchLastSection/минимум секции отъедают место у значений со скобками.
+	header()->setStretchLastSection(false);
 	header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
 	header()->setSectionResizeMode(1, QHeaderView::Stretch);
 	header()->setMinimumSectionSize(48);
+	if (model->columnCount() > 2)
+	{
+		setColumnHidden(2, true);
+	}
 
 	setItemDelegateForColumn(1, new TelemetryDelegate(this));
 

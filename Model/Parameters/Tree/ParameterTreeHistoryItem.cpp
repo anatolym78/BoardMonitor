@@ -1,5 +1,6 @@
 #include "ParameterTreeHistoryItem.h"
 #include "ParameterTreeArrayItem.h"
+#include <algorithm>
 #include <random>
 #include <QColor>
 
@@ -63,6 +64,29 @@ void ParameterTreeHistoryItem::setValues(const QList<QVariant>& values, const QL
 QVariant ParameterTreeHistoryItem::lastValue() const
 {
 	return m_values.last();
+}
+
+QVariant ParameterTreeHistoryItem::valueAtOrBefore(const QDateTime& time) const
+{
+	if (!time.isValid() || m_timestamps.isEmpty())
+	{
+		return QVariant();
+	}
+
+	// Вперёд за последнюю точку этой серии — данных ещё нет
+	if (time > m_timestamps.last())
+	{
+		return QVariant();
+	}
+
+	const auto it = std::upper_bound(m_timestamps.cbegin(), m_timestamps.cend(), time);
+	if (it == m_timestamps.cbegin())
+	{
+		return QVariant();
+	}
+
+	const int index = static_cast<int>(std::distance(m_timestamps.cbegin(), it)) - 1;
+	return m_values.at(index);
 }
 
 const QList<QVariant>& ParameterTreeHistoryItem::values() const

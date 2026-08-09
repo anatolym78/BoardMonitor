@@ -3,11 +3,15 @@
 #include "./../Model/Parameters/Tree/ParameterTreeStorage.h"
 #include "./../Model/Parameters/Tree/ParameterTreeGroupItem.h"
 #include "./../Model/Parameters/Tree/ParameterTreeArrayItem.h"
+#include "DataPlayer.h"
 
+#include <functional>
 #include <random>
 #include <QDateTime>
 #include <QIcon>
 #include <QDebug>
+#include <QTimer>
+#include <QtGlobal>
 
 BoardParametersTreeModel::BoardParametersTreeModel(QObject* parent)
 	: QAbstractItemModel(parent)
@@ -20,6 +24,106 @@ BoardParametersTreeModel::BoardParametersTreeModel(QObject* parent)
 	connect(m_rootItem, &ParameterTreeStorage::parameterAdded, this, &BoardParametersTreeModel::onParameterAdded);
 	connect(m_rootItem, &ParameterTreeStorage::valueAdded, this, &BoardParametersTreeModel::onValueAdded);
 	connect(m_rootItem, &ParameterTreeStorage::valueChanged, this, &BoardParametersTreeModel::onValueChanged);
+
+	m_valueRefreshTimer = new QTimer(this);
+	m_valueRefreshTimer->setSingleShot(true);
+	m_valueRefreshTimer->setInterval(33);
+	connect(m_valueRefreshTimer, &QTimer::timeout, this, &BoardParametersTreeModel::refreshValueColumn);
+}
+
+void BoardParametersTreeModel::setPlayer(DataPlayer* player)
+{
+	if (m_playingConnection)
+	{
+		disconnect(m_playingConnection);
+	}
+	if (m_positionConnection)
+	{
+		disconnect(m_positionConnection);
+	}
+
+	m_player = player;
+	if (!m_player)
+	{
+		return;
+	}
+
+	m_playingConnection = connect(m_player, &DataPlayer::isPlayingChanged,
+		this, &BoardParametersTreeModel::scheduleValueColumnRefresh);
+	m_positionConnection = connect(m_player, &DataPlayer::currentPositionChanged,
+		this, &BoardParametersTreeModel::scheduleValueColumnRefresh, Qt::QueuedConnection);
+	scheduleValueColumnRefresh();
+}
+
+bool BoardParametersTreeModel::showScrubValue() const
+{
+	// Только live на паузе: recorded идёт через snapshot
+	return m_player && !m_player->isPlayable() && !m_player->isPlaying()
+		&& m_player->currentPosition().isValid();
+}
+
+QString BoardParametersTreeModel::formatDisplayValue(const QVariant& value)
+{
+	if (!value.isValid() || value.isNull())
+	{
+		return QString();
+	}
+	// Некорректные/пустые варианты (часто «мусор» в toString)
+	if (value.userType() == QMetaType::UnknownType)
+	{
+		return QString();
+	}
+	if (value.type() == QVariant::Double)
+	{
+		const double d = value.toDouble();
+		if (!qIsFinite(d))
+		{
+			return QString();
+		}
+		return QString::number(d, 'g', 8);
+	}
+	if (value.type() == QVariant::String && value.toString().trimmed().isEmpty())
+	{
+		return QString();
+	}
+	const QString text = value.toString();
+	if (text.isEmpty() || text.startsWith(QLatin1String("QVariant(")))
+	{
+		return QString();
+	}
+	return text;
+}
+
+void BoardParametersTreeModel::scheduleValueColumnRefresh()
+{
+	if (!m_valueRefreshTimer)
+	{
+		return;
+	}
+	if (!m_valueRefreshTimer->isActive())
+	{
+		m_valueRefreshTimer->start();
+	}
+}
+
+void BoardParametersTreeModel::refreshValueColumn()
+{
+	std::function<void(const QModelIndex&)> walk = [&](const QModelIndex& parent)
+	{
+		const int rows = rowCount(parent);
+		for (int row = 0; row < rows; ++row)
+		{
+			const QModelIndex child = index(row, 0, parent);
+			auto* item = static_cast<ParameterTreeItem*>(child.internalPointer());
+			if (item && item->type() == ParameterTreeItem::ItemType::History)
+			{
+				const QModelIndex valueIndex = index(row, 1, parent);
+				emit dataChanged(valueIndex, valueIndex, { Qt::DisplayRole, ValueRole });
+			}
+			walk(child);
+		}
+	};
+	walk(QModelIndex());
 }
 
 void BoardParametersTreeModel::attachExternalStorage(ParameterTreeStorage* storage)
@@ -232,8 +336,26 @@ QVariant BoardParametersTreeModel::data(const QModelIndex& index, int role) cons
 			{
 				if (treeItem->type() == ParameterTreeItem::ItemType::History)
 				{
-					auto leafItem = static_cast<ParameterTreeHistoryItem*>(index.internalPointer());
-					return leafItem->values().last();
+					auto* leafItem = static_cast<ParameterTreeHistoryItem*>(index.internalPointer());
+					if (!leafItem || leafItem->values().isEmpty())
+					{
+						return QVariant();
+					}
+
+					const QString liveText = formatDisplayValue(leafItem->lastValue());
+					if (!showScrubValue())
+					{
+						return leafItem->lastValue();
+					}
+
+					const QVariant scrubValue = leafItem->valueAtOrBefore(m_player->currentPosition());
+					const QString scrubText = formatDisplayValue(scrubValue);
+					if (scrubText.isEmpty())
+					{
+						// ASCII '-', не '—': иначе на MSVC без /utf-8 в UI кракозябры
+						return QStringLiteral("%1 (-)").arg(liveText);
+					}
+					return QStringLiteral("%1 (%2)").arg(liveText, scrubText);
 				}
 				return QVariant();
 			}

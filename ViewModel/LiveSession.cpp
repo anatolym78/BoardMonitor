@@ -16,6 +16,7 @@ LiveSession::LiveSession(QObject *parent)
 	m_player->setStorage(m_treeStorage);
 
 	m_parametersModel->attachExternalStorage(m_treeStorage);
+	m_parametersModel->setPlayer(m_player);
 
 	connect(m_treeStorage, &ParameterTreeStorage::valueAdded, this,
 		[this](ParameterTreeHistoryItem*)

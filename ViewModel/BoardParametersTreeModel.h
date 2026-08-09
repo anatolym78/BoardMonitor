@@ -5,7 +5,11 @@
 #include <QColor>
 
 #include "./../Model/Parameters/Tree/ParameterTreeStorage.h"
-#include "DataPlayer.h"
+
+#include <QPointer>
+#include <QTimer>
+
+class DataPlayer;
 
 class BoardParametersTreeModel : public QAbstractItemModel
 {
@@ -31,6 +35,7 @@ public:
 
 	void setSnapshot(ParameterTreeStorage* storage, bool isBackPlaying);
 	void attachExternalStorage(ParameterTreeStorage* storage);
+	void setPlayer(DataPlayer* player);
 	ParameterTreeStorage* storage() const { return m_rootItem; }
 
 	QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
@@ -55,6 +60,10 @@ signals:
 
 private:
 	void makeRandomColors();
+	void scheduleValueColumnRefresh();
+	void refreshValueColumn();
+	bool showScrubValue() const;
+	static QString formatDisplayValue(const QVariant& value);
 
 	bool findIndexRecursive(ParameterTreeItem* item, QModelIndex parentIndex, QModelIndex& foundedIndex);
 
@@ -65,8 +74,10 @@ private:
 	// Для Qt Widgets: хранение заголовков колонок
 	QVariant m_horizontalHeaders[3];
 
-	//QMetaObject::Connection m_playConnection;
-	//QMetaObject::Connection m_stopConnection;
+	QPointer<DataPlayer> m_player;
+	QMetaObject::Connection m_playingConnection;
+	QMetaObject::Connection m_positionConnection;
+	QTimer* m_valueRefreshTimer = nullptr;
 };
 
 #endif // BOARDPARAMETERSTREEMODEL_H
