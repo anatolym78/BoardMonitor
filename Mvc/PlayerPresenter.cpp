@@ -113,7 +113,7 @@ bool PlayerPresenter::hitCursor(const QPointF& pos) const
 void PlayerPresenter::updateHover(const QPointF& pos)
 {
 	auto* doc = playerDoc();
-	if (doc && doc->isLiveMode() && doc->isPlaying())
+	if (doc && doc->isLiveMode())
 	{
 		if (m_hover)
 		{
@@ -159,8 +159,8 @@ void PlayerPresenter::mousePress(QMouseEvent* e)
 		return;
 	}
 
-	// Live + проигрывание: ползунок серый и недоступен; на паузе — можно двигать
-	if (doc->isLiveMode() && doc->isPlaying())
+	// Live: ползунок всегда недоступен (пока не разберём скраб без зависания)
+	if (doc->isLiveMode())
 	{
 		return;
 	}
@@ -277,9 +277,9 @@ void PlayerPresenter::drawCore(QPainter& painter)
 		}
 	}
 
-	// Ползунок: live+play — серый и недоступен; иначе синий, при наведении — чёрный
+	// Ползунок: в live всегда серый и недоступен; иначе синий, при наведении — чёрный
 	const QRectF thumb = thumbRect();
-	const bool locked = doc->isLiveMode() && doc->isPlaying();
+	const bool locked = doc->isLiveMode();
 	const bool hot = !locked && (m_hover || m_dragging);
 	if (locked)
 	{
