@@ -38,6 +38,7 @@ public:
 	void showParameter(ParameterTreeItem* parameter);
 	void hideParameter(ParameterTreeItem* parameter);
 	void toggleParameter(ParameterTreeItem* parameter);
+	void clearAllCharts();
 	bool isParameterDisplayed(ParameterTreeItem* parameter) const;
 	bool hasSeries(const QString& label) const;
 

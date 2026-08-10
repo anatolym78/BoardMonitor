@@ -29,6 +29,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	m_showChartButton->setToolTip(tr("Show parameter"));
 	m_showChartButton->setAutoRaise(true);
 	connect(m_showChartButton, &QToolButton::clicked, this, &SessionWorkspace::onShowChartButtonClicked);
+	m_showChartButton->hide();
 
 	m_hideChartButton = new QToolButton(this);
 	m_hideChartButton->setIcon(QIcon(":/Resources/icons8-hide-32.png"));
@@ -36,12 +37,21 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	m_hideChartButton->setToolTip(tr("Hide parameter"));
 	m_hideChartButton->setAutoRaise(true);
 	connect(m_hideChartButton, &QToolButton::clicked, this, &SessionWorkspace::onHideChartButtonClicked);
+	m_hideChartButton->hide();
+
+	m_hideAllChartsButton = new QToolButton(this);
+	m_hideAllChartsButton->setIcon(QIcon(":/Resources/icons8-erase-32.png"));
+	m_hideAllChartsButton->setIconSize(QSize(32, 32));
+	m_hideAllChartsButton->setToolTip(tr("Hide all charts"));
+	m_hideAllChartsButton->setAutoRaise(true);
+	connect(m_hideAllChartsButton, &QToolButton::clicked, this, &SessionWorkspace::onHideAllChartsButtonClicked);
 
 	QHBoxLayout* chartButtonsLayout = new QHBoxLayout();
 	chartButtonsLayout->setContentsMargins(0, 0, 0, 0);
 	chartButtonsLayout->setSpacing(2);
 	chartButtonsLayout->addWidget(m_showChartButton, 0, Qt::AlignLeft);
 	chartButtonsLayout->addWidget(m_hideChartButton, 0, Qt::AlignLeft);
+	chartButtonsLayout->addWidget(m_hideAllChartsButton, 0, Qt::AlignLeft);
 	chartButtonsLayout->addStretch(1);
 
 	m_parametersTree = new TelemetryDataView(this);
@@ -220,6 +230,14 @@ void SessionWorkspace::onHideChartButtonClicked()
 	if (m_session)
 	{
 		m_session->hideChartFromSelectedParameter();
+	}
+}
+
+void SessionWorkspace::onHideAllChartsButtonClicked()
+{
+	if (m_session)
+	{
+		m_session->hideAllCharts();
 	}
 }
 

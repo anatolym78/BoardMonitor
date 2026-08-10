@@ -40,6 +40,7 @@ protected:
 private slots:
     void onShowChartButtonClicked();
     void onHideChartButtonClicked();
+    void onHideAllChartsButtonClicked();
     void onParameterDoubleClicked(const QModelIndex& index);
     void syncPlayerTimeline();
 
@@ -54,6 +55,7 @@ private:
     PlayerTemplate* m_playerTemplate = nullptr;
     QToolButton* m_showChartButton;
     QToolButton* m_hideChartButton;
+    QToolButton* m_hideAllChartsButton = nullptr;
     QTimer* m_layoutSettleTimer = nullptr;
     bool m_chartsInteractionPaused = false;
     /** Курсор MVP-шкалы, замороженный на паузе live (playhead при этом может идти дальше). */

@@ -77,6 +77,42 @@ void updateChartVisibilityForSelection(BoardParametersTreeModel* parametersModel
 	updateVisibility(currentIndex);
 }
 
+void updateAllChartVisibility(BoardParametersTreeModel* parametersModel, ChartsModel* chartsModel)
+{
+	if (!parametersModel || !chartsModel)
+	{
+		return;
+	}
+
+	std::function<void(const QModelIndex&)> updateVisibility;
+	updateVisibility = [&](const QModelIndex& index)
+	{
+		auto item = static_cast<ParameterTreeItem*>(index.internalPointer());
+		if (!item)
+		{
+			return;
+		}
+
+		if (item->type() == ParameterTreeItem::ItemType::History)
+		{
+			const bool isVisible = chartsModel->hasSeries(item->fullName());
+			parametersModel->setData(index, isVisible, BoardParametersTreeModel::ChartVisibilityRole);
+		}
+
+		const int rows = parametersModel->rowCount(index);
+		for (int i = 0; i < rows; ++i)
+		{
+			updateVisibility(parametersModel->index(i, 0, index));
+		}
+	};
+
+	const int rows = parametersModel->rowCount();
+	for (int i = 0; i < rows; ++i)
+	{
+		updateVisibility(parametersModel->index(i, 0));
+	}
+}
+
 ParameterTreeItem* selectedParameterTreeItem(QItemSelectionModel* selectionModel)
 {
 	if (!selectionModel)
@@ -160,6 +196,22 @@ void Session::hideChartFromSelectedParameter()
 	updateChartVisibilityForSelection(m_parametersModel, m_chartsModel, currentIndex);
 
 	qDebug() << "Session::hideChartFromSelectedParameter: removed chart series for parameter" << treeItem->fullName();
+}
+
+void Session::hideAllCharts()
+{
+	if (!m_chartsModel || !m_parametersModel)
+	{
+		return;
+	}
+
+	if (m_chartsModel->chartCount() == 0)
+	{
+		return;
+	}
+
+	m_chartsModel->clearAllCharts();
+	updateAllChartVisibility(m_parametersModel, m_chartsModel);
 }
 
 void Session::toggleChartAtIndex(const QModelIndex& index)

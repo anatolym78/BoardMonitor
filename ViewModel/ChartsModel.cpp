@@ -314,6 +314,21 @@ void ChartsModel::hideParameter(ParameterTreeItem* parameter)
 	}
 }
 
+void ChartsModel::clearAllCharts()
+{
+	while (!m_charts.isEmpty())
+	{
+		const int chartIndex = m_charts.count() - 1;
+		const QStringList labels = m_charts[chartIndex].seriesLabels;
+		for (const QString& label : labels)
+		{
+			emit seriesRemoved(chartIndex, label);
+		}
+		m_charts.removeLast();
+		emit chartRemoved(chartIndex);
+	}
+}
+
 void ChartsModel::toggleParameter(ParameterTreeItem* parameter)
 {
 	if (!parameter)
