@@ -1066,7 +1066,12 @@ void ChartsPanel::syncSeriesFromHistory(int chartIndex, const QString& label, Pa
 		const double y = values[i].toDouble(&ok);
 		if (!ok) continue;
 		const double key = toPlotKey(times[i]);
-		if (graph->data()->contains(key)) continue;
+		if (graph->data()->contains(key))
+		{
+			// Тот же X — обновить Y (иначе «залипание» ординаты)
+			(*graph->data())[key].value = y;
+			continue;
+		}
 		graph->addData(key, y);
 	}
 }
@@ -1102,7 +1107,11 @@ void ChartsPanel::updateSeries(int chartIndex, const QString& label, ParameterTr
 		const double y = newValues[i].toDouble(&ok);
 		if (!ok) continue;
 		const double key = toPlotKey(newTimes[i]);
-		if (graph->data()->contains(key)) continue;
+		if (graph->data()->contains(key))
+		{
+			(*graph->data())[key].value = y;
+			continue;
+		}
 		graph->addData(key, y);
 	}
 

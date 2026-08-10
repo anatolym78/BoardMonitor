@@ -116,10 +116,12 @@ QDateTime ParameterTreeJsonParser::resolveSnapshotTime(qint64 rawBoardMs, const 
         resolved = m_boardWallAnchor.addMSecs(rawBoardMs + m_boardWrapOffsetMs - m_boardAnchorMs);
     }
 
-    // Не отдаём время назад относительно предыдущего пакета (иначе пила на графике)
-    if (m_lastResolvedSnapshot.isValid() && resolved.isValid() && resolved < m_lastResolvedSnapshot)
+    // Не отдаём время назад и не замираем на одном ms: иначе updateSeries
+    // пропускает точки (contains(key)) → горизонталь на графике на секунды
+    if (m_lastResolvedSnapshot.isValid() && resolved.isValid()
+		&& resolved <= m_lastResolvedSnapshot)
     {
-        resolved = m_lastResolvedSnapshot;
+        resolved = m_lastResolvedSnapshot.addMSecs(1);
     }
     if (resolved.isValid())
     {

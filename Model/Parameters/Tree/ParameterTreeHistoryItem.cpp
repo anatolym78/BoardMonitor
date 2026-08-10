@@ -52,10 +52,11 @@ ParameterTreeHistoryItem::ParameterTreeHistoryItem(const QString &label, Paramet
 void ParameterTreeHistoryItem::addValue(const QVariant &value, const QDateTime &timestamp)
 {
 	QDateTime ts = timestamp;
-	// Монотонность по X: иначе QCustomPlot рисует «пилу» из вертикальных выбросов
-	if (!m_timestamps.isEmpty() && ts.isValid() && ts < m_timestamps.last())
+	// Монотонность по X без «залипания» на одном ключе: иначе график
+	// горизонталит, пока не появится новый timestamp
+	if (!m_timestamps.isEmpty() && ts.isValid() && ts <= m_timestamps.last())
 	{
-		ts = m_timestamps.last();
+		ts = m_timestamps.last().addMSecs(1);
 	}
 	m_values.append(value);
 	m_timestamps.append(ts);
