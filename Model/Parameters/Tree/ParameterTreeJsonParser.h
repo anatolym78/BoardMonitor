@@ -52,6 +52,7 @@ private:
     // Привязка бортового счётчика (int32, миллисекунды от включения борта) к настенному времени
     bool m_boardClockAnchored = false;
     QDateTime m_boardWallAnchor;
+    QDateTime m_lastResolvedSnapshot;
     qint64 m_boardAnchorMs = 0;
     qint64 m_lastRawBoardMs = 0;
     qint64 m_boardWrapOffsetMs = 0;

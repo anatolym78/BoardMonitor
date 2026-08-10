@@ -30,7 +30,8 @@ double toPlotKey(const QDateTime& time)
 
 QDateTime fromPlotKey(double key)
 {
-	return QDateTime::fromMSecsSinceEpoch(static_cast<qint64>(key * 1000.0));
+	// toMSecsSinceEpoch всегда в UTC; без явного timespec Qt5 даёт Local → сдвиги сравнения на Linux
+	return QDateTime::fromMSecsSinceEpoch(static_cast<qint64>(key * 1000.0), Qt::UTC);
 }
 
 /** Заголовок чарта с переносом по ширине (стандартный QCPPlotTitle рисует одну строку и обрезает края). */

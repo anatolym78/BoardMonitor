@@ -23,7 +23,7 @@ public:
     const QList<QVariant>& values() const;
     const QList<QDateTime>& timestamps() const;
 
-    const QDateTime& lastTimestamp() const;
+    QDateTime lastTimestamp() const;
 
     QString control() const;
     void setControl(const QString &control);

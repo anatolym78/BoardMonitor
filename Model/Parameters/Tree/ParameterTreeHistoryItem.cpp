@@ -51,8 +51,14 @@ ParameterTreeHistoryItem::ParameterTreeHistoryItem(const QString &label, Paramet
 
 void ParameterTreeHistoryItem::addValue(const QVariant &value, const QDateTime &timestamp)
 {
+	QDateTime ts = timestamp;
+	// Монотонность по X: иначе QCustomPlot рисует «пилу» из вертикальных выбросов
+	if (!m_timestamps.isEmpty() && ts.isValid() && ts < m_timestamps.last())
+	{
+		ts = m_timestamps.last();
+	}
 	m_values.append(value);
-	m_timestamps.append(timestamp);
+	m_timestamps.append(ts);
 }
 
 void ParameterTreeHistoryItem::setValues(const QList<QVariant>& values, const QList<QDateTime>& timestamps)
@@ -99,9 +105,12 @@ const QList<QDateTime>& ParameterTreeHistoryItem::timestamps() const
 	return m_timestamps;
 }
 
-const QDateTime& ParameterTreeHistoryItem::lastTimestamp() const
+QDateTime ParameterTreeHistoryItem::lastTimestamp() const
 {
-	if (m_timestamps.isEmpty()) return QDateTime();
+	if (m_timestamps.isEmpty())
+	{
+		return QDateTime();
+	}
 
 	return m_timestamps.last();
 }

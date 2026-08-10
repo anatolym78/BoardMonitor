@@ -35,6 +35,7 @@ void ParameterTreeJsonParser::resetBoardClock()
 {
     m_boardClockAnchored = false;
     m_boardWrapOffsetMs = 0;
+    m_lastResolvedSnapshot = QDateTime();
 }
 
 bool ParameterTreeJsonParser::extractBoardTimestampMs(const QJsonObject &obj, qint64 &boardMs) const
@@ -76,6 +77,8 @@ bool ParameterTreeJsonParser::extractBoardTimestampMs(const QJsonObject &obj, qi
 
 QDateTime ParameterTreeJsonParser::resolveSnapshotTime(qint64 rawBoardMs, const QDateTime &arrivalTimestamp)
 {
+    QDateTime resolved;
+
     if (!m_boardClockAnchored)
     {
         m_boardClockAnchored = true;
@@ -84,10 +87,9 @@ QDateTime ParameterTreeJsonParser::resolveSnapshotTime(qint64 rawBoardMs, const 
         m_lastRawBoardMs = rawBoardMs;
         m_boardWrapOffsetMs = 0;
 
-        return arrivalTimestamp;
+        resolved = arrivalTimestamp;
     }
-
-    if (rawBoardMs < m_lastRawBoardMs)
+    else if (rawBoardMs < m_lastRawBoardMs)
     {
         // Счётчик int32 уходит с максимума на минимум. Всё остальное убывание
         // трактуем как перезапуск борта и привязываемся заново
@@ -95,6 +97,8 @@ QDateTime ParameterTreeJsonParser::resolveSnapshotTime(qint64 rawBoardMs, const 
         if (wrapped)
         {
             m_boardWrapOffsetMs += kInt32Span;
+            m_lastRawBoardMs = rawBoardMs;
+            resolved = m_boardWallAnchor.addMSecs(rawBoardMs + m_boardWrapOffsetMs - m_boardAnchorMs);
         }
         else
         {
@@ -103,13 +107,25 @@ QDateTime ParameterTreeJsonParser::resolveSnapshotTime(qint64 rawBoardMs, const 
             m_boardWrapOffsetMs = 0;
             m_lastRawBoardMs = rawBoardMs;
 
-            return arrivalTimestamp;
+            resolved = arrivalTimestamp;
         }
     }
+    else
+    {
+        m_lastRawBoardMs = rawBoardMs;
+        resolved = m_boardWallAnchor.addMSecs(rawBoardMs + m_boardWrapOffsetMs - m_boardAnchorMs);
+    }
 
-    m_lastRawBoardMs = rawBoardMs;
-
-    return m_boardWallAnchor.addMSecs(rawBoardMs + m_boardWrapOffsetMs - m_boardAnchorMs);
+    // Не отдаём время назад относительно предыдущего пакета (иначе пила на графике)
+    if (m_lastResolvedSnapshot.isValid() && resolved.isValid() && resolved < m_lastResolvedSnapshot)
+    {
+        resolved = m_lastResolvedSnapshot;
+    }
+    if (resolved.isValid())
+    {
+        m_lastResolvedSnapshot = resolved;
+    }
+    return resolved;
 }
 
 ParameterTreeStorage* ParameterTreeJsonParser::parseJson(const QString &jsonString)

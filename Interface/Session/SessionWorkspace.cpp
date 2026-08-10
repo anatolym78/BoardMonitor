@@ -77,7 +77,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 
 	auto* sessionTabs = new QTabWidget(this);
 	sessionTabs->addTab(m_chartsPanel, tr("Графики"));
-	sessionTabs->addTab(new QWidget(this), tr("Траектория"));
+	//sessionTabs->addTab(new QWidget(this), tr("Траектория"));
 	sessionTabs->setCurrentIndex(0);
 
 	QSplitter* splitter = new QSplitter(Qt::Horizontal, this);

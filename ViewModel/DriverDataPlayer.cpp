@@ -95,7 +95,11 @@ void DriverDataPlayer::onStorageValueAdded(ParameterTreeHistoryItem* historyItem
 
 	{
 		QMutexLocker locker(&m_positionMutex);
-		m_currentPosition = timestamp;
+		// Не откатываем позицию назад (разные параметры / гонки → дёрганье ползунка)
+		if (!m_currentPosition.isValid() || timestamp > m_currentPosition)
+		{
+			m_currentPosition = timestamp;
+		}
 	}
 	emit currentPositionChanged();
 	emit elapsedTimeChanged();
@@ -283,7 +287,10 @@ void DriverDataPlayer::flushRefresh()
 
 	{
 		QMutexLocker locker(&m_positionMutex);
-		m_currentPosition = latest;
+		if (!m_currentPosition.isValid() || latest > m_currentPosition)
+		{
+			m_currentPosition = latest;
+		}
 	}
 
 	emit played(nullptr, false);
