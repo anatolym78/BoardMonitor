@@ -15,11 +15,18 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 set(Boost_USE_MULTITHREADED ON)
 #add_definitions(-DBOOST_ALL_NO_LIB)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql PrintSupport)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql PrintSupport)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql PrintSupport Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql PrintSupport Network)
 find_package(Boost 1.89.0 REQUIRED COMPONENTS filesystem json exception)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# QGeoView: vendored under qgeoview/ — build library only (no samples)
+set(BUILD_EXAMPLES OFF CACHE BOOL "Build QGeoView examples" FORCE)
+if(QT_VERSION_MAJOR EQUAL 5)
+	set(USE_QT_5 ON CACHE BOOL "Force Qt 5 for QGeoView" FORCE)
+endif()
+add_subdirectory(qgeoview)
 
 set(
     APP_SOURCES
@@ -48,6 +55,8 @@ set(
     Interface/Charts/ChartsPanel.h
     Interface/Charts/ChartView.cpp
     Interface/Charts/ChartView.h
+    Interface/Maps/TrajectoryMapView.cpp
+    Interface/Maps/TrajectoryMapView.h
     Interface/Player/PlaybackView.cpp
     Interface/Player/PlaybackView.h
     Interface/Uplink/UplinkEditorView.cpp
@@ -268,6 +277,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets 
     Qt${QT_VERSION_MAJOR}::Sql
     Qt${QT_VERSION_MAJOR}::PrintSupport
+    Qt${QT_VERSION_MAJOR}::Network
+    qgeoview
+)
+
+# Shared qgeoview.dll must sit next to the app on Windows
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		$<TARGET_FILE:qgeoview>
+		$<TARGET_FILE_DIR:${PROJECT_NAME}>
+	COMMENT "Copy qgeoview runtime next to BoardMonitor"
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)

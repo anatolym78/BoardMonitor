@@ -1,6 +1,7 @@
 #include "SessionWorkspace.h"
 #include "../Telemetry/TelemetryDataView.h"
 #include "../Charts/ChartsPanel.h"
+#include "../Maps/TrajectoryMapView.h"
 #include "../Player/PlaybackView.h"
 #include "../../Mvc/PlayerTemplate.h"
 #include "../../Mvc/PlayerDocument.h"
@@ -66,6 +67,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	parametersContainer->setLayout(parametersLayout);
 
 	m_chartsPanel = new ChartsPanel(this);
+	m_trajectoryMap = new TrajectoryMapView(this);
 	m_playerView = new PlaybackView(this);
 
 	m_playerTemplate = new PlayerTemplate(this);
@@ -77,7 +79,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 
 	auto* sessionTabs = new QTabWidget(this);
 	sessionTabs->addTab(m_chartsPanel, tr("Графики"));
-	//sessionTabs->addTab(new QWidget(this), tr("Траектория"));
+	sessionTabs->addTab(m_trajectoryMap, tr("Траектория"));
 	sessionTabs->setCurrentIndex(0);
 
 	QSplitter* splitter = new QSplitter(Qt::Horizontal, this);

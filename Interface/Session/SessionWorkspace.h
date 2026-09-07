@@ -9,6 +9,7 @@
 
 class TelemetryDataView;
 class ChartsPanel;
+class TrajectoryMapView;
 class PlaybackView;
 class PlayerTemplate;
 class QToolButton;
@@ -33,6 +34,7 @@ public:
     TelemetryDataView* parametersTree() const { return m_parametersTree; }
     PlaybackView* playerView() const { return m_playerView; }
     ChartsPanel* chartsPanel() const { return m_chartsPanel; }
+    TrajectoryMapView* trajectoryMap() const { return m_trajectoryMap; }
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -51,6 +53,7 @@ private:
     QPointer<Session> m_session;
     TelemetryDataView* m_parametersTree;
     ChartsPanel* m_chartsPanel;
+    TrajectoryMapView* m_trajectoryMap = nullptr;
     PlaybackView* m_playerView;
     PlayerTemplate* m_playerTemplate = nullptr;
     QToolButton* m_showChartButton;
