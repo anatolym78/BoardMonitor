@@ -457,7 +457,7 @@ void ChartsPanel::onChartAdded(int chartIndex, ParameterTreeItem* parameter)
 
 	auto* valueAxis = chartView->yAxis;
 	valueAxis->setAutoTickCount(3);
-	valueAxis->setRange(0, 1);
+	chartView->setValueBaseRange(0, 1);
 
 	ChartRuntime runtime;
 	runtime.view = chartView;
@@ -1045,7 +1045,14 @@ void ChartsPanel::applyValueAxisRange(ChartRuntime& chart, double dataMin, doubl
 		upper = chart.valueEnvelopeUpper + pad;
 	}
 
-	chart.valueAxis->setRange(lower, upper);
+	if (chart.view)
+	{
+		chart.view->setValueBaseRange(lower, upper);
+	}
+	else if (chart.valueAxis)
+	{
+		chart.valueAxis->setRange(lower, upper);
+	}
 }
 
 void ChartsPanel::syncSeriesFromHistory(int chartIndex, const QString& label, ParameterTreeHistoryItem* data)

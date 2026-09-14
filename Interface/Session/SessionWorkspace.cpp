@@ -129,6 +129,11 @@ void SessionWorkspace::attachModels(Session* session)
 
 	m_chartsPanel->setModel(session->chartsModel());
 
+	if (m_trajectoryMap)
+	{
+		m_trajectoryMap->setStorage(session->storage());
+	}
+
 	if (session->player())
 	{
 		m_playerView->setPlayer(session->player());

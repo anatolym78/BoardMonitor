@@ -57,6 +57,10 @@ set(
     Interface/Charts/ChartView.h
     Interface/Maps/TrajectoryMapView.cpp
     Interface/Maps/TrajectoryMapView.h
+    Interface/Maps/GeoPolylineItem.cpp
+    Interface/Maps/GeoPolylineItem.h
+    Interface/Maps/StartMarkerItem.cpp
+    Interface/Maps/StartMarkerItem.h
     Interface/Player/PlaybackView.cpp
     Interface/Player/PlaybackView.h
     Interface/Uplink/UplinkEditorView.cpp
