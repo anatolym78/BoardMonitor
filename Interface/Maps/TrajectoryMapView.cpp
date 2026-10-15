@@ -10,6 +10,7 @@
 #include <QLineF>
 #include <QNetworkAccessManager>
 #include <QNetworkDiskCache>
+#include <QSizePolicy>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtMath>
@@ -108,6 +109,8 @@ void findLatLonRecursive(ParameterTreeItem* node,
 TrajectoryMapView::TrajectoryMapView(QWidget* parent)
 	: QWidget(parent)
 {
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
 	auto* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);
 	layout->setSpacing(0);
@@ -115,6 +118,12 @@ TrajectoryMapView::TrajectoryMapView(QWidget* parent)
 	setupNetworkAccess();
 
 	m_map = new QGVMap(this);
+	m_map->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	// QGraphicsView иначе отдаёт sizeHint ≈ sceneRect мира и сжимает соседние панели в QSplitter
+	if (auto* view = m_map->geoView())
+	{
+		view->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+	}
 	layout->addWidget(m_map);
 
 	m_map->addWidget(new QGVWidgetCompass());
@@ -138,6 +147,16 @@ TrajectoryMapView::TrajectoryMapView(QWidget* parent)
 	m_trackLayer->addItem(m_startMarker);
 
 	QTimer::singleShot(0, this, [this]() { centerOnMoscow(); });
+}
+
+QSize TrajectoryMapView::sizeHint() const
+{
+	return QSize(640, 480);
+}
+
+QSize TrajectoryMapView::minimumSizeHint() const
+{
+	return QSize(200, 150);
 }
 
 void TrajectoryMapView::setStorage(ParameterTreeStorage* storage)

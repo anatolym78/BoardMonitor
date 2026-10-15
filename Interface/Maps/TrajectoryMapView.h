@@ -25,6 +25,10 @@ public:
 
 	QGVMap* map() const { return m_map; }
 
+	/** Не наследовать огромный sizeHint QGraphicsView (sceneRect всего мира EPSG:3857). */
+	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
+
 	void setStorage(ParameterTreeStorage* storage);
 	void clearTrajectory();
 

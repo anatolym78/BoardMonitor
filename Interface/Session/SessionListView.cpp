@@ -13,7 +13,7 @@ SessionListView::SessionListView(QWidget *parent) : QTreeView(parent)
 	setRootIsDecorated(true);
 	setItemsExpandable(true);
 	setHeaderHidden(true);
-	setUniformRowHeights(true);
+	setUniformRowHeights(false);
 	setExpandsOnDoubleClick(true);
 
 	setItemDelegate(new SessionListDelegate(this));

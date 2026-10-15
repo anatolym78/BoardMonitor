@@ -65,6 +65,7 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 
 	QWidget* parametersContainer = new QWidget(this);
 	parametersContainer->setLayout(parametersLayout);
+	parametersContainer->setMinimumWidth(260);
 
 	m_chartsPanel = new ChartsPanel(this);
 	m_trajectoryMap = new TrajectoryMapView(this);
@@ -88,6 +89,17 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	splitter->setStretchFactor(0, 1);
 	splitter->setStretchFactor(1, 8);
 	splitter->setChildrenCollapsible(false);
+	// Начальные доли: иначе QTabWidget (карта) перетягивает ширину по sizeHint
+	QTimer::singleShot(0, splitter, [splitter]()
+	{
+		const int w = splitter->width();
+		if (w <= 0)
+		{
+			return;
+		}
+		const int left = qBound(260, w / 5, w / 3);
+		splitter->setSizes({ left, w - left });
+	});
 
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);
 	mainLayout->setContentsMargins(0, 0, 0, 0);

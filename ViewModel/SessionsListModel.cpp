@@ -489,7 +489,7 @@ QVariant SessionsListModel::data(const QModelIndex &index, int role) const
 		switch (role)
 		{
 		case Qt::DecorationRole:
-			return QIcon(":/Resources/icons8-folder-24.png");
+			return QIcon(":/Resources/icons8-sessions_day-16.png");
 		case SessionNameRole:
 			return item->folderDate.toString("dd-MM-yyyy");
 		case IsDayFolderRole:
@@ -517,9 +517,9 @@ QVariant SessionsListModel::data(const QModelIndex &index, int role) const
 		case Qt::DecorationRole:
 			if (isLive)
 			{
-				return QIcon(":/Resources/icons8-live-24.png");
+				return QIcon(":/Resources/live_session_16.png");
 			}
-			return QIcon(":/Resources/icons8-list-24.png");
+			return QIcon(":/Resources/icons8-chart-16.png");
 		case SessionIdRole:
 			return session->getId();
 		case SessionNameRole:
@@ -571,9 +571,9 @@ QVariant SessionsListModel::data(const QModelIndex &index, int role) const
 		case IconRole:
 			if (isLive)
 			{
-				return ":/Resources/icons8-live-24.png";
+				return ":/Resources/live_session_16.png";
 			}
-			return ":/Resources/icons8-list-24.png";
+			return ":/Resources/icons8-chart-16.png";
 		case SaveProgressRole:
 			if (isLive)
 				return m_liveSessionSaveProgress;

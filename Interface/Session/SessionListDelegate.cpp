@@ -3,9 +3,8 @@
 
 #include <QPainter>
 
-static constexpr int kSessionRowHeight = 44;
-static constexpr int kIconSize = 24;
-static constexpr int kMarginH = 6;
+static constexpr int kIconSize = 16;
+static constexpr int kMarginH = 4;
 static constexpr qreal kSelectedFontScale = 1.12;
 
 static void fillRowBackground(QPainter* painter, const QRect& rect,
@@ -31,9 +30,18 @@ SessionListDelegate::SessionListDelegate(QObject* parent)
 QSize SessionListDelegate::sizeHint(const QStyleOptionViewItem& option,
                                      const QModelIndex& index) const
 {
-	Q_UNUSED(option)
-	Q_UNUSED(index)
-	return QSize(0, kSessionRowHeight);
+	const QSize base = QStyledItemDelegate::sizeHint(option, index);
+	const bool isFolder = index.data(SessionsListModel::IsDayFolderRole).toBool();
+	if (isFolder)
+	{
+		const int h = qMax(base.height(), kIconSize + 4);
+		return QSize(base.width(), h);
+	}
+
+	// Две строки текста — высота от метрик шрифта, без фиксированных 44px
+	const int lineH = option.fontMetrics.height();
+	const int h = qMax(kIconSize + 4, lineH * 2 + 2);
+	return QSize(base.width(), h);
 }
 
 void SessionListDelegate::paint(QPainter* painter,

@@ -48,5 +48,9 @@
         <file>Resources/icons8-warning-16.png</file>
         <file>Resources/icons8-folder-24.png</file>
         <file>Resources/icons8-erase-32.png</file>
+        <file>Resources/icons8-folder-16.png</file>
+        <file>Resources/icons8-session-16.png</file>
+        <file>Resources/icons8-sessions_day-16.png</file>
+        <file>Resources/icons8-chart-16.png</file>
     </qresource>
 </RCC>
