@@ -376,12 +376,10 @@ void ChartsPanel::onParameterItemHovered(ParameterTreeHistoryItem* treeItem)
 			}
 			if (treeItem && treeItem->fullName() == it.key())
 			{
-				chart.view->setHovered(true);
 				hoverSeries(graph);
 			}
 			else
 			{
-				chart.view->setHovered(false);
 				restoreSeriesColor(graph);
 			}
 		}
@@ -448,6 +446,8 @@ void ChartsPanel::onChartAdded(int chartIndex, ParameterTreeItem* parameter)
 		if (state) hoverSeries(graph);
 		else restoreSeriesColor(graph);
 	});
+	connect(chartView, &ChartView::removeRequested,
+		this, &ChartsPanel::chartRemoveRequested);
 
 	auto* timeAxis = chartView->xAxis;
 	timeAxis->setTickLabelType(QCPAxis::ltDateTime);

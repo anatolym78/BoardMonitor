@@ -63,6 +63,9 @@ public:
 
 	void onParameterItemHovered(ParameterTreeHistoryItem* treeItem);
 
+signals:
+	void chartRemoveRequested(int chartIndex);
+
 protected:
 	bool eventFilter(QObject* watched, QEvent* event) override;
 

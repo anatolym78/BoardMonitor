@@ -1,7 +1,10 @@
 #include "ChartView.h"
 
 #include <QEvent>
+#include <QIcon>
 #include <QMouseEvent>
+#include <QResizeEvent>
+#include <QToolButton>
 #include <QWheelEvent>
 #include <QtMath>
 
@@ -10,7 +13,6 @@ namespace
 
 const QColor kNormalBackground = QColor(Qt::white);
 const QColor kSelectedBackground = QColor(227, 239, 255);
-const QColor kHoveredBackground = QColor(255, 239, 193);
 
 } // namespace
 
@@ -20,7 +22,6 @@ ChartView::ChartView(int chartIndex, int row, int column, QWidget* parent)
 	, m_column(column)
 	, m_chartIndex(chartIndex)
 	, m_selected(false)
-	, m_hovered(false)
 {
 	setBackground(QBrush(kNormalBackground));
 	setFocusPolicy(Qt::WheelFocus);
@@ -29,7 +30,8 @@ ChartView::ChartView(int chartIndex, int row, int column, QWidget* parent)
 	m_zoomLabel->setPositionAlignment(Qt::AlignTop | Qt::AlignRight);
 	m_zoomLabel->position->setType(QCPItemPosition::ptAxisRectRatio);
 	m_zoomLabel->position->setAxisRect(axisRect());
-	m_zoomLabel->position->setCoords(0.98, 0.04);
+	// Чуть левее, чтобы не пересекаться с кнопкой удаления
+	m_zoomLabel->position->setCoords(0.90, 0.04);
 	m_zoomLabel->setTextAlignment(Qt::AlignRight);
 	m_zoomLabel->setFont(QFont(font().family(), 9));
 	m_zoomLabel->setColor(QColor(80, 80, 80));
@@ -38,6 +40,17 @@ ChartView::ChartView(int chartIndex, int row, int column, QWidget* parent)
 	m_zoomLabel->setPen(Qt::NoPen);
 	m_zoomLabel->setClipToAxisRect(false);
 	updateZoomLabel();
+
+	m_removeButton = new QToolButton(this);
+	m_removeButton->setIcon(QIcon(QStringLiteral(":/Resources/icons8-remove_chart-16.png")));
+	m_removeButton->setIconSize(QSize(16, 16));
+	m_removeButton->setFixedSize(20, 20);
+	m_removeButton->setAutoRaise(true);
+	m_removeButton->setCursor(Qt::PointingHandCursor);
+	m_removeButton->setToolTip(tr("Remove chart"));
+	m_removeButton->setFocusPolicy(Qt::NoFocus);
+	connect(m_removeButton, &QToolButton::clicked, this, &ChartView::onRemoveClicked);
+	positionOverlayControls();
 }
 
 void ChartView::setSelected(bool selected)
@@ -53,8 +66,8 @@ void ChartView::setSelected(bool selected)
 
 void ChartView::setHovered(bool hover)
 {
-	m_hovered = hover;
-	updateBackground();
+	Q_UNUSED(hover)
+	// Жёлтая подсветка чарта по hover отключена
 }
 
 void ChartView::setValueBaseRange(double lower, double upper)
@@ -139,19 +152,34 @@ void ChartView::updateZoomLabel()
 	m_zoomLabel->setVisible(true);
 }
 
-void ChartView::enterEvent(QEvent* event)
+void ChartView::positionOverlayControls()
 {
-	QCustomPlot::enterEvent(event);
-	m_hovered = true;
-	updateBackground();
+	if (!m_removeButton)
+	{
+		return;
+	}
+
+	const int x = width() - kOverlayMargin - m_removeButton->width();
+	const int y = kOverlayMargin;
+	m_removeButton->move(qMax(0, x), y);
+	m_removeButton->raise();
+}
+
+void ChartView::onRemoveClicked()
+{
+	emit removeRequested(m_chartIndex);
+}
+
+void ChartView::resizeEvent(QResizeEvent* event)
+{
+	QCustomPlot::resizeEvent(event);
+	positionOverlayControls();
 }
 
 void ChartView::leaveEvent(QEvent* event)
 {
 	QCustomPlot::leaveEvent(event);
-	m_hovered = false;
 	setHoveredGraph(nullptr);
-	updateBackground();
 }
 
 void ChartView::mousePressEvent(QMouseEvent* event)
@@ -169,16 +197,6 @@ void ChartView::mousePressEvent(QMouseEvent* event)
 	}
 
 	QCustomPlot::mousePressEvent(event);
-
-	if (event->button() == Qt::MouseButton::LeftButton)
-	{
-		m_selected = !m_selected;
-		if (m_chartsModel)
-		{
-			m_chartsModel->selectChart(m_chartIndex, true);
-		}
-		updateBackground();
-	}
 }
 
 void ChartView::mouseMoveEvent(QMouseEvent* event)
@@ -242,11 +260,7 @@ void ChartView::setHoveredGraph(QCPGraph* graph)
 
 void ChartView::updateBackground()
 {
-	if (m_hovered)
-	{
-		setBackground(QBrush(kHoveredBackground));
-	}
-	else if (m_selected)
+	if (m_selected)
 	{
 		setBackground(QBrush(kSelectedBackground));
 	}

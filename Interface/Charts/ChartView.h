@@ -8,13 +8,15 @@
 
 #include "../../ViewModel/ChartsModel.h"
 
+class QToolButton;
+class QResizeEvent;
+
 /**
  * @brief Виджет одной ячейки графика (обёртка над QCustomPlot).
  *
- * Живёт в сетке ChartsPanel. Отвечает за локальный UI: фон при выделении/hover,
- * клик (selection в ChartsModel), сигнал graphHovered. Точки серий пишет ChartsPanel.
- * Колёсико над областью графика — вертикальный масштаб 0.5…5.0 относительно курсора;
- * ЛКМ сбрасывает масштаб в 1.0.
+ * Живёт в сетке ChartsPanel. Точки серий пишет ChartsPanel.
+ * Колёсико — вертикальный масштаб 0.5…5.0 относительно курсора; ЛКМ сбрасывает в 1.0.
+ * Кнопка в правом верхнем углу удаляет график из ChartsModel.
  */
 class ChartView : public QCustomPlot
 {
@@ -39,28 +41,32 @@ public:
 signals:
 	/** Курсор вошёл в серию или покинул её: в QCustomPlot 1.x у серий нет своего сигнала hovered. */
 	void graphHovered(QCPGraph* graph, bool hovered);
+	/** Запрос удалить этот слот графика (индекс на момент клика). */
+	void removeRequested(int chartIndex);
 
 protected:
-	void enterEvent(QEvent* event) override;
 	void leaveEvent(QEvent* event) override;
 	void mousePressEvent(QMouseEvent* event) override;
 	void mouseMoveEvent(QMouseEvent* event) override;
 	void wheelEvent(QWheelEvent* event) override;
+	void resizeEvent(QResizeEvent* event) override;
 
 private:
 	void updateBackground();
 	void setHoveredGraph(QCPGraph* graph);
 	void applyZoomedRange(const double* anchorY);
 	void updateZoomLabel();
+	void positionOverlayControls();
+	void onRemoveClicked();
 
 	int m_row = 0;
 	int m_column = 0;
 	int m_chartIndex = 0;
 	bool m_selected = false;
-	bool m_hovered = false;
 
 	ChartsModel* m_chartsModel = nullptr;
 	QCPGraph* m_hoveredGraph = nullptr;
+	QToolButton* m_removeButton = nullptr;
 
 	double m_baseLower = 0.0;
 	double m_baseUpper = 1.0;
@@ -70,6 +76,7 @@ private:
 
 	static constexpr double kZoomMin = 0.5;
 	static constexpr double kZoomMax = 5.0;
+	static constexpr int kOverlayMargin = 4;
 };
 
 #endif // CHARTVIEW_H

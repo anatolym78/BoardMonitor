@@ -52,5 +52,6 @@
         <file>Resources/icons8-session-16.png</file>
         <file>Resources/icons8-sessions_day-16.png</file>
         <file>Resources/icons8-chart-16.png</file>
+        <file>Resources/icons8-remove_chart-16.png</file>
     </qresource>
 </RCC>

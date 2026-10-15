@@ -68,6 +68,13 @@ SessionWorkspace::SessionWorkspace(Session* session, QWidget *parent) : QFrame(p
 	parametersContainer->setMinimumWidth(260);
 
 	m_chartsPanel = new ChartsPanel(this);
+	connect(m_chartsPanel, &ChartsPanel::chartRemoveRequested, this, [this](int chartIndex)
+	{
+		if (m_session)
+		{
+			m_session->removeChart(chartIndex);
+		}
+	});
 	m_trajectoryMap = new TrajectoryMapView(this);
 	m_playerView = new PlaybackView(this);
 

@@ -214,6 +214,22 @@ void Session::hideAllCharts()
 	updateAllChartVisibility(m_parametersModel, m_chartsModel);
 }
 
+void Session::removeChart(int chartIndex)
+{
+	if (!m_chartsModel || !m_parametersModel)
+	{
+		return;
+	}
+
+	if (chartIndex < 0 || chartIndex >= m_chartsModel->chartCount())
+	{
+		return;
+	}
+
+	m_chartsModel->removeChart(chartIndex);
+	updateAllChartVisibility(m_parametersModel, m_chartsModel);
+}
+
 void Session::toggleChartAtIndex(const QModelIndex& index)
 {
 	if (!m_chartsModel || !m_parametersModel || !index.isValid())

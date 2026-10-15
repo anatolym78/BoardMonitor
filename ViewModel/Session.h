@@ -60,6 +60,7 @@ public:
 	void showChartFromSelectedParameter();
 	void hideChartFromSelectedParameter();
 	void hideAllCharts();
+	void removeChart(int chartIndex);
 	void toggleChartAtIndex(const QModelIndex& index);
 
 signals:

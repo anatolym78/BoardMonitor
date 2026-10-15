@@ -38,6 +38,8 @@ public:
 	void showParameter(ParameterTreeItem* parameter);
 	void hideParameter(ParameterTreeItem* parameter);
 	void toggleParameter(ParameterTreeItem* parameter);
+	/** Удалить слот графика целиком (все серии слота). */
+	void removeChart(int chartIndex);
 	void clearAllCharts();
 	bool isParameterDisplayed(ParameterTreeItem* parameter) const;
 	bool hasSeries(const QString& label) const;
